@@ -1,0 +1,242 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Springer Nature LaTeX template (sn-jnl).
+%% Target: International Journal of Information Technology (Springer).
+%% Download sn-jnl.cls + sn-*.bst from:
+%%   https://www.springernature.com/gp/authors/campaigns/latex-author-support
+%% and place them next to this file before compiling.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[pdflatex,sn-mathphys,Numbered]{sn-jnl}
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{listings}
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\raggedbottom
+
+\begin{document}
+
+\title[Adaptive PB-JCI Online]{Adaptive Poisson--Binomial Joint Conformal
+Intervals Online for Calibrated Multi-Class Cell Counting under Distribution Shift}
+
+\author[1]{\fnm{Thu Hiep} \sur{...}}\email{dinhthithuhiep1@gmail.com}
+\author[1]{\fnm{} \sur{(advisor)}}
+
+\affil[1]{\orgname{...}, \city{...}, \country{Vietnam}}
+
+\abstract{%
+% ~200 words. Draft skeleton:
+% (1) Problem: foundation segmentation models (SAM3) give point counts with no
+%     calibrated uncertainty; uncertainty is critical in histopathology.
+% (2) Gap: static conformal breaks under distribution shift; multi-class needs a
+%     joint guarantee, not per-class.
+% (3) Method: Poisson--Binomial counting scores give analytic per-class variance;
+%     a joint max-statistic gives simultaneous coverage; an online window with a
+%     coverage-feedback adaptive size recalibrates to the current regime.
+% (4) Results: on PanNuke/NuInsSeg/CoNSeP with two backbones (SAM3, PathoSAM),
+%     the method holds ~90% joint coverage under shift where static conformal
+%     collapses, and attains the best Winkler/interval score against modern
+%     online-conformal baselines (ACI, COP, SAOCP).
+\textbf{[TODO: viết abstract \textasciitilde 200 từ.]}
+}
+
+\keywords{conformal prediction, uncertainty quantification, cell counting,
+distribution shift, histopathology, foundation models}
+
+\maketitle
+
+%==============================================================================
+\section{Introduction}\label{sec:intro}
+%==============================================================================
+% Three gaps -> three contributions.
+% Gap 1: point-estimate counting gives no warning when wrong.
+% Gap 2: static (split) conformal loses coverage under distribution shift.
+% Gap 3: multi-class counting needs a JOINT coverage guarantee.
+%
+% Contributions:
+%  (C1) Poisson--Binomial counting scores with analytic per-class variance,
+%       turning a class-agnostic detector + type head into a calibrated counter.
+%  (C2) Adaptive PB-JCI Online: a joint, shift-triggered, online recalibration
+%       mechanism that self-calibrates to the current regime (no shift-type
+%       router, no labels required for shift detection).
+%  (C3) Predictor-agnostic empirical evidence on two distinct backbones and
+%       three datasets, including extreme cross-dataset shift.
+%
+% NOTE: empirical-only paper. Coverage validity is CITED from prior work
+% (Vovk et al.; Gibbs \& Cand\`es 2021; Barber et al. 2023), NOT re-proven.
+
+\textbf{[TODO]}
+
+%==============================================================================
+\section{Related Work}\label{sec:related}
+%==============================================================================
+% Short: conformal basics (Vovk) -> ACI (Gibbs \& Cand\`es 2021) ->
+% beyond exchangeability (Barber et al. 2023) -> recent online CP
+% (SAOCP/Bhatnagar 2023, COP 2026). Counting foundation models: SAM3 (Kong
+% et al. 2025), PathoSAM. Position: we do NOT claim SOTA counting; we add
+% distribution-free uncertainty quantification on top of frozen backbones.
+
+\textbf{[TODO]}
+
+%==============================================================================
+\section{Method}\label{sec:method}
+%==============================================================================
+
+\subsection{Poisson--Binomial counting scores}\label{sec:pb}
+% Detector gives per-instance objectness s_i; the type head gives per-class
+% softmax p_{ik}. Each instance is Bernoulli(w_{ik}), w_{ik}=s_i p_{ik}.
+% Count N_k = sum_i Bernoulli(w_{ik}) ~ Poisson--Binomial:
+%   E[N_k] = sum_i w_{ik},  Var[N_k] = sum_i w_{ik}(1-w_{ik}),  sigma_k=sqrt(Var+eps).
+% K=1 (total count): p collapses to 1, w_i = s_i, still Poisson--Binomial.
+
+\textbf{[TODO]}
+
+\subsection{Joint coverage via a max-statistic}\label{sec:jci}
+% Normalized residual R_k = |N_k - \hat N_k| / sigma_k. Joint score S = max_k R_k.
+% Split-conformal quantile of S over a calibration set gives a band
+% \hat N_k \pm q\,sigma_k that covers ALL K classes simultaneously with prob
+% >= 1-alpha (finite-sample, exchangeable) -- guarantee cited from prior work.
+
+\textbf{[TODO]}
+
+\subsection{Adaptive PB-JCI Online}\label{sec:adaptive}
+% Sliding window of recent normalized residuals; q = empirical quantile over the
+% window. Coverage-feedback adaptive window size: shrink when recent coverage
+% drifts, grow when stable -> tracks the current regime. Shift-triggered
+% recalibration uses MMD/Wasserstein/Energy on features when feedback (labels)
+% is unavailable. No shift-type router (tested, rejected). Algorithm below.
+
+\textbf{[TODO: Algorithm 1 pseudocode]}
+
+\paragraph{Theoretical grounding (cited, not proven).}
+% One paragraph: split-conformal validity under exchangeability (Vovk et al.);
+% ACI's coverage tracking under arbitrary shift (Gibbs \& Cand\`es 2021); the
+% beyond-exchangeability coverage gap (Barber et al. 2023). Our construction
+% inherits these guarantees; the paper's contribution is empirical efficiency
+% and the adaptive mechanism.
+\textbf{[TODO]}
+
+%==============================================================================
+\section{Experiments}\label{sec:exp}
+%==============================================================================
+
+\subsection{Setup}\label{sec:setup}
+% Datasets: PanNuke (in-domain), NuInsSeg (clean OOD), CoNSeP. Backbones: SAM3,
+% PathoSAM (NOTE leakage: PathoSAM trained on PanNuke+Lizard; PanNuke tables are
+% in-domain mechanism checks; only NuInsSeg is clean OOD). alpha=0.1, W=300.
+% Multi-seed: report mean +/- std over runs.
+
+\textbf{[TODO]}
+
+\subsection{Main result: joint conformal counting under shift}\label{sec:main}
+
+\begin{table}[t]
+\caption{Joint conformal counting under shift (SAM3, Phase~C, 15 runs).
+Coverage~\% / Width, target 90\%. Static conformal collapses; ACI holds
+coverage but width explodes; \textbf{PB-JCI Online holds \textasciitilde89\%
+and is up to 28\% narrower than ACI} under severe shift.}
+\label{tab:main}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Method & in-dist & mild & severe & drift \\
+\midrule
+Marginal Split (static)       & 62.7 / 9.63  & 54.8 / 10.01 & 61.8 / 9.19  & 59.9 / 9.60 \\
+ACI (Gibbs--Cand\`es 2021)    & 89.9 / 14.62 & 89.7 / 18.70 & 89.3 / 24.54 & 89.4 / 19.45 \\
+PB-JCI split (static, ours)   & 90.0 / 13.54 & 82.9 / 13.93 & 81.1 / 12.79 & 84.8 / 13.41 \\
+\textbf{PB-JCI Online (ours)} & \textbf{90.5 / 13.76} & \textbf{89.9 / 16.18} & \textbf{89.4 / 17.77} & \textbf{89.3 / 15.56} \\
+Class-Strat Bonferroni        & 94.4 / 18.59 & 89.2 / 19.05 & 85.3 / 16.19 & 89.9 / 17.91 \\
+\botrule
+\end{tabular}
+\end{table}
+
+\textbf{[TODO: diễn giải]}
+
+\subsection{Predictor-agnostic: a second, non-SAM backbone}\label{sec:agnostic}
+
+\begin{table}[t]
+\caption{Predictor-agnostic check on PathoSAM (Coverage~\% / Width). The same
+story holds on a completely different backbone $\Rightarrow$ the contribution
+lives in the conformal layer, not the detector.}
+\label{tab:agnostic}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Method & in-dist & mild & severe & drift \\
+\midrule
+ACI                           & 89.9 / 14.79 & 89.6 / 18.05 & 87.4 / 68.70 & 87.2 / 32.76 \\
+PB-JCI split (static)         & 89.7 / 13.67 & 83.8 / 13.75 & 35.7 / 11.38 & 70.1 / 12.98 \\
+\textbf{PB-JCI Online (ours)} & \textbf{90.4 / 13.94} & \textbf{89.2 / 15.87} & \textbf{85.7 / 54.02} & \textbf{85.6 / 23.87} \\
+\botrule
+\end{tabular}
+\end{table}
+
+\textbf{[TODO: diễn giải]}
+
+\subsection{Extreme cross-dataset shift vs.\ modern baselines}\label{sec:cross}
+
+\begin{table}[t]
+\caption{Extreme cross-dataset shift (PathoSAM $\to$ NuInsSeg, clean OOD) vs.\
+modern online-conformal baselines. Coverage~\% / Width / Winkler. All methods
+fed the same PB-normalized score to isolate the recalibration mechanism.
+\textbf{Headline metric = Winkler/interval score} (lower is better):
+Adaptive PB-JCI Online attains the best 108.67.}
+\label{tab:cross}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Method & Coverage & Width & Winkler $\downarrow$ \\
+\midrule
+PB-JCI Online (static op-point)        & 81.8$\pm$1.0 & 53.11 & 125.96$\pm$2.17 \\
+ACI                                    & 84.0$\pm$0.2 & 63.58 & 129.55$\pm$3.78 \\
+COP (Conformal Optimistic, ICLR 2026)  & 87.9$\pm$0.2 & 60.60 & 113.13$\pm$2.00 \\
+Detector-flush (fast-recovery variant) & 88.7$\pm$0.9 & 62.21 & 110.07$\pm$1.46 \\
+\textbf{Adaptive PB-JCI Online (ours)} & \textbf{90.0$\pm$0.6} & 66.50 & \textbf{108.67$\pm$2.94} \\
+\botrule
+\end{tabular}
+\end{table}
+
+\textbf{[TODO: diễn giải — width KHÔNG phải đóng góp; conditional validity + Winkler]}
+
+\subsection{Ablation}\label{sec:ablation}
+
+\begin{table}[t]
+\caption{Ablation: removing one component at a time.}
+\label{tab:ablation}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Removed component & Effect \\
+\midrule
+$-$ PB-$\sigma$ (raw error)            & width \textbf{+28--30\%} in-dist/mild (14.0$\to$19.9, 16.0$\to$22.2) \\
+$-$ joint max-statistic ($\to$ Bonf.) & width \textbf{+31\%} (13.94$\to$20.17) \\
+$-$ online window ($\to$ split)       & coverage \textbf{90$\to$36\%} under severe shift \\
+$-$ shift-triggered recalibration     & extreme-shift coverage \textbf{82 vs 89--90\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{[TODO: diễn giải]}
+
+%==============================================================================
+\section{Conclusion}\label{sec:conclusion}
+%==============================================================================
+\textbf{[TODO]}
+
+%==============================================================================
+\backmatter
+
+\bmhead{Acknowledgements}
+\textbf{[TODO]}
+
+% \bibliography{references}
+
+\end{document}

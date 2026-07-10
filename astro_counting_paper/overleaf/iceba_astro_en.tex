@@ -1,0 +1,315 @@
+%% ICEBA2026 — Springer Nature Proceedings (sn-jnl). Full paper (English).
+%% Compile with pdflatex (this file sits next to sn-jnl.cls and bst/).
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}% Math and Physical Sciences Numbered Reference Style
+
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{amsthm}%
+\usepackage{mathrsfs}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{manyfoot}%
+\usepackage{booktabs}%
+
+\raggedbottom
+
+\begin{document}
+
+\title[Online Conformal Calibration for Astronomical Source Counting]{Online Conformal Calibration for
+Astronomical Source Counting with Guaranteed Coverage under Survey-Depth Shift}
+
+\author[1]{\fnm{Thi Thu Hiep} \sur{Dinh}}\email{dinhthithuhiep1@gmail.com}
+\author*[1]{\fnm{Viet Hang} \sur{Duong}}\email{hangdv@uit.edu.vn}
+
+\affil*[1]{\orgdiv{Faculty of Computer Science}, \orgname{University of Information Technology (UIT),
+VNU-HCM}, \orgaddress{\city{Ho Chi Minh City}, \country{Vietnam}}}
+
+\abstract{Astronomical source counting is a fundamental task in observational astronomy, underpinning
+measurements of source density, population statistics, and large-scale structure. However, most
+source-detection pipelines provide only point estimates without uncertainty quantification, a limitation
+that becomes critical when deployment data differ from calibration data due to changes in survey depth or
+observing conditions. Conformal prediction offers prediction intervals with finite-sample coverage
+guarantees under exchangeability, yet static calibration deteriorates under distribution shift, while
+multi-class counting further requires simultaneous coverage of an entire count vector. This work applies
+Adaptive PB-JCI Online, an online conformal calibration framework originally developed for cell counting,
+to astronomical source counting. The method combines Poisson--Binomial variance scaling, joint-coverage
+calibration through a maximum-statistic nonconformity score, and an adaptive sliding-window update.
+Experiments are conducted on 61{,}423 real sources from Sloan Digital Sky Survey DR17, using the official
+photometric catalog as a probabilistic backbone and a controlled survey-depth shift induced by
+signal-to-noise degradation. The proposed approach maintains valid joint coverage of approximately $91\%$
+across all shift levels, whereas static calibration degrades from $85\%$ to $9\%$. Compared with several
+representative online conformal baselines, Adaptive PB-JCI achieves valid coverage while attaining the
+lowest Winkler interval score among the methods evaluated. These results demonstrate that a
+counting-calibration framework developed for life-science applications can transfer effectively to
+astrophysical source counting under distribution shift.}
+
+\keywords{conformal prediction, online calibration, count uncertainty quantification, distribution shift,
+astronomical source counting}
+
+\maketitle
+
+%%===========================================================%%
+\section{Introduction}\label{sec:intro}
+
+Counting objects is a central task across sciences: cells in biomedicine, trees in forestry, and---in this
+work---astronomical sources (stars and galaxies) used to probe the structure and diversity of the Universe.
+In practice, a count is far more useful with a \emph{trustworthy error bar} than as a bare number: an
+astronomer needs statements such as ``$20 \pm 4$ galaxies, guaranteed $90\%$ of the time'' to compare
+regions or epochs on solid ground.
+
+The core difficulty is that data-acquisition conditions change between observations---different instruments,
+survey depths, or weather---so the data distribution \emph{shifts}. Prediction intervals calibrated on old
+data and applied to new data then \emph{silently lose coverage}: they report tidy error bars that are in
+fact wrong. Intervals that are too narrow (under-covering) yield false discoveries and irreproducible
+results; intervals that are too wide (over-covering) are useless, drowning real signals in error.
+
+Prior work by the present authors proposed \emph{Adaptive PB-JCI Online} for counting nuclei in
+histopathology, achieving guaranteed coverage under shift. This paper asks whether the method
+\emph{generalizes to a very different scientific field}. The contributions are:
+\begin{itemize}
+\item \textbf{Cross-domain transfer.} The method is applied unchanged (not a single formula altered) to
+astronomical source counting---a step from life science to physics---on an entirely different dataset and
+backbone.
+\item \textbf{A benchmark anchored in real data.} The evaluation is built on SDSS DR17 with the real
+photometric pipeline as backbone, a controlled survey-depth shift, and a \emph{full suite} of modern
+online-conformal baselines.
+\item \textbf{Results.} Adaptive PB-JCI is the unique method attaining valid joint coverage at the best
+interval score, and it remains stable across the entire range of shift magnitudes.
+\end{itemize}
+
+%%===========================================================%%
+\section{Related Work}\label{sec:related}
+
+Conformal prediction (CP) yields distribution-free prediction intervals with coverage guarantees under
+exchangeability~\cite{vovk2005}. For online prediction under distribution shift, Adaptive Conformal
+Inference (ACI)~\cite{gibbs2021} adjusts the miscoverage level over time; extensions include
+FACI~\cite{gibbs2024}, NexCP with decaying weights~\cite{barber2023}, strongly-adaptive
+SAOCP~\cite{bhatnagar2023}, and rolling-origin variants. These methods target \emph{scalar} prediction;
+the present problem requires \emph{joint coverage of a multi-class count vector} together with a
+\emph{per-instance adaptive width} derived from detection uncertainty. Astronomical number counts are a
+classic cosmological measurement, but are typically reported with Poisson errors and \emph{without}
+coverage guarantees under cross-survey shift---the gap addressed here.
+
+%%===========================================================%%
+\section{Method: Adaptive PB-JCI Online}\label{sec:method}
+
+\subsection{Soft counts and Poisson-Binomial dispersion}
+For each field (an image region), the backbone provides, for every object $i$, a detection probability
+$s_i$ and a class-probability vector $p_i[k]$. Instead of hard counting, the method uses \emph{soft counts}
+\begin{equation}
+n_{\mathrm{pred}}[k]=\sum_i s_i\,p_i[k],\qquad
+\sigma[k]=\sqrt{\sum_i \big(s_i p_i[k]\big)\big(1-s_i p_i[k]\big)}. \label{eq:soft}
+\end{equation}
+Here $\sigma[k]$ is the standard deviation of a sum of independent Bernoulli variables (a
+\emph{Poisson-Binomial} distribution): it is large when a field contains many ambiguous objects
+(confidence near $0.5$) and small when confidences are decisive. This yields a \emph{per-field adaptive
+width}.
+
+\subsection{Joint nonconformity across classes}
+To obtain \emph{joint coverage} for the whole count vector, a normalized \emph{max-statistic}
+across classes is used,
+\begin{equation}
+S_t=\max_k \frac{\big|\,g_t[k]-n_{\mathrm{pred}}[k]\,\big|}{\sigma[k]},\qquad
+\text{interval for class }k:\ \big[\,n_{\mathrm{pred}}[k]-q\,\sigma[k],\ n_{\mathrm{pred}}[k]+q\,\sigma[k]\,\big], \label{eq:maxstat}
+\end{equation}
+where $g_t[k]$ is the true count and $q$ is the $(1-\alpha)$ quantile of the nonconformity scores.
+
+\subsection{Online adaptive calibration window}
+The core contribution: when shift depresses coverage, a \emph{calibration window} shrinks so that $q$
+updates quickly to recent data; when coverage is stable, the window grows so that $q$ stabilizes.
+Concretely, rolling coverage is monitored over a recent window; if it is below target the window shrinks
+(multiply by a factor $<1$), if above target it grows (factor $>1$), clipped to $[w_{\min},w_{\max}]$.
+This \emph{coverage-recovery} mechanism is the main source of the method's advantage, distinct from
+$\sigma$ (which only governs width).
+
+%%===========================================================%%
+\section{Data and Backbone}\label{sec:data}
+
+\subsection{Dataset: SDSS DR17}
+This study uses the Sloan Digital Sky Survey, Data Release~17~\cite{sdssdr17}---a $2.5$\,m optical survey
+imaging in five bands $ugriz$. From the \texttt{PhotoObjAll} photometric table, a sky region
+RA~$150$--$152^\circ$, Dec~$0$--$2^\circ$ ($\sim 4\,\mathrm{deg}^2$) is queried with standard quality flags
+(\texttt{mode=1} primary, \texttt{clean=1}), keeping two classes: stars (\texttt{type=6}) and galaxies
+(\texttt{type=3}). This yields \textbf{61{,}423 real sources} (25{,}270 stars, 36{,}153 galaxies), median
+signal-to-noise ratio $\approx 11.1$. The region is gridded into 841 fields; even cells form the
+calibration set (CAL, 421 fields) and odd cells the test set (TEST, 420 fields).
+
+\subsection{Backbone: the SDSS photometric pipeline}
+The backbone is \emph{not} a trained model, but the official SDSS photometric pipeline that produced the
+catalogue. For each source it supplies real quantities: flux, the signal-to-noise ratio
+$\mathrm{SNR}=\texttt{psfFlux}\cdot\sqrt{\texttt{psfFluxIvar}}$, and a star/galaxy label. It should be noted
+that in SDSS \texttt{probPSF} is a \emph{binary flag} ($0$ or $1$) coinciding with \texttt{type}, not a
+calibrated probability; class assignment in the deep regime is therefore \emph{hard}.
+
+\paragraph{Per-source uncertainty is modelled from real SNR.} The Poisson--Binomial dispersion is driven by
+two modelled quantities anchored on the real SNR. First, since the catalogue contains only \emph{detected}
+sources, the detection probability is not available directly and is set by the standard $5\sigma$
+completeness function $s_i=\mathrm{logistic}\big((\mathrm{SNR}_i-5)/1.5\big)$. Second, under the survey-depth
+shift (below), the binary class label is progressively blurred toward $0.5$ as the SNR degrades, reflecting
+less reliable classification of faint sources. The resulting detection and class probabilities form the soft
+counts of \eqref{eq:soft}; in the deep regime the dispersion mainly reflects detection uncertainty. The
+setup is thus \emph{semi-synthetic}: the photometric quantities are real, whereas the detection probability
+and the classification blur are modelled components anchored on real SNR.
+
+\subsection{Survey-depth shift}
+A ``shallower survey'' is simulated by forward-modelling depth on the real data:
+$\mathrm{SNR}_{\mathrm{shallow}}=\mathrm{SNR}_{\mathrm{deep}}/\mathrm{DEPTH}$, which drops faint sources
+below the detection threshold and blurs classification. CAL is the deep regime (small residuals) and TEST
+the shallow regime (large residuals)---a genuine hardening direction. \texttt{DEPTH} is a knob on shift
+strength, enabling a full sweep (Section~\ref{sec:results}). A fully-observational evaluation (Stripe~82
+co-adds) is left for future work.
+
+%%===========================================================%%
+\section{Experimental Setup}\label{sec:setup}
+
+\paragraph{Diagnostic-first protocol.} Before any full run, the completeness threshold is swept and
+per-class bias, the correlation between $\sigma$ and the error ($\sigma$-gain), and the coverage of static
+calibration on CAL/TEST are measured. The chosen threshold exhibits a \emph{strong shift} (static
+under-covers on TEST, CAL calibration healthy).
+
+\paragraph{Baselines.} Nine methods: Static split-CP, ACI, NexCP, FACI, SAOCP, COP, Rolling-Origin CP, and
+the two proposed variants (PB-JCI Online-Fixed, Adaptive PB-JCI Online), all adapted to the $K{=}2$ joint
+max-statistic.
+
+\paragraph{Metrics.} Joint coverage (\%), per-class coverage, conditional validity (minimum rolling
+coverage, longest miss run), mean width (AvgW), and the \emph{Winkler} interval score (lower is better; the
+headline metric). Target coverage is $90\%$ ($\alpha=0.1$).
+
+%%===========================================================%%
+\section{Results}\label{sec:results}
+
+\subsection{Main table (fixed shift)}
+At the strongest shift threshold (static calibration drops $90.5\%\!\to\!81.0\%$), backbone bias is
+$\approx 0$ and $\sigma$-gain is positive ($+0.44$). Table~\ref{tab:main} reports the crosstable.
+
+\begin{table}[h]
+\caption{Joint $K{=}2$ crosstable at fixed shift (5 seeds). AvgW and Winkler are means; lower Winkler is
+better. Only Adaptive reaches $\ge 90\%$ without inflating the interval.}\label{tab:main}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Method & Joint\,\% & AvgW & Winkler & minLoc\,\% \\
+\midrule
+Static split-CP & 81.0 & 0.03 & 2.84 & 67.2 \\
+ACI~\cite{gibbs2021} & 89.7 & 6.29 & 14.08 & 85.2 \\
+NexCP~\cite{barber2023} & 88.0 & 0.21 & 2.23 & 78.0 \\
+FACI~\cite{gibbs2024} & 88.6 & 0.26 & 2.19 & 80.4 \\
+SAOCP~\cite{bhatnagar2023} & 99.3 & 11.12 & 22.34 & 96.8 \\
+COP & 85.1 & 0.10 & 2.52 & 72.0 \\
+Rolling-Origin & 88.5 & 0.24 & 2.18 & 78.8 \\
+PB-JCI Fixed (proposed) & 85.7 & 0.18 & 2.32 & 72.4 \\
+\textbf{Adaptive PB-JCI (proposed)} & \textbf{91.2} & 0.47 & \textbf{2.10} & 84.0 \\
+\botrule
+\end{tabular}
+\end{table}
+
+Adaptive is the only method reaching $\ge 90\%$ \emph{without} inflating intervals, and it attains the best
+Winkler score ($2.10$). The two other methods that ``cover'' are useless: SAOCP over-covers at $99.3\%$ but
+with Winkler $22.3$ (intervals $\sim 10\times$ wider), and ACI reaches $89.7\%$ with an unstable Winkler of
+$14.08$. Methods with slightly lower Winkler all under-cover ($85$--$88.5\%$). In short, only Adaptive is
+both valid and tight.
+
+\subsection{Stability across the shift range (key result)}
+Increasing the shift strength (static collapses $85.5\%\!\to\!9.0\%$), Table~\ref{tab:depth} shows Adaptive
+holds $\sim 91\%$ almost unchanged, while static calibration collapses and fixed-rate baselines drift down.
+
+\begin{table}[h]
+\caption{Joint coverage (\%) versus shift strength. Adaptive stays $\ge 90\%$ throughout; static collapses
+and fixed-rate baselines drift.}\label{tab:depth}
+\begin{tabular}{@{}lccccccccc@{}}
+\toprule
+Shift & Static & ACI & NexCP & FACI & SAOCP & COP & Roll. & PB-Fix & \textbf{Adapt.} \\
+\midrule
+weak      & 85.5 & 89.8 & 88.7 & 88.8 & 98.3 & 87.3 & 89.2 & 87.9 & \textbf{91.4} \\
+moderate  & 81.0 & 89.7 & 88.0 & 88.6 & 99.3 & 85.1 & 88.5 & 85.7 & \textbf{91.2} \\
+strong    & 53.1 & 89.6 & 87.1 & 88.6 & 99.3 & 82.9 & 87.0 & 83.3 & \textbf{91.0} \\
+very strong & 9.0 & 89.7 & 86.2 & 89.1 & 99.5 & 80.3 & 85.8 & 81.9 & \textbf{90.5} \\
+\botrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{fig_pub_recovery}
+\caption{Rolling coverage after a deep$\to$shallow shift: modern baselines (grey) versus Adaptive PB-JCI
+(bold). Only Adaptive tracks the $90\%$ target without over-covering.}\label{fig:recovery}
+\end{figure}
+
+\subsection{Recovery after an abrupt shift}
+On a stream switching abruptly from deep to shallow, Adaptive returns to the $90\%$ target within
+$\sim 30$ steps of the change point---the most balanced of the valid methods (fixed-rate baselines drop to
+$77$--$83\%$ just after the change; SAOCP over-covers at $100\%$).
+
+%%===========================================================%%
+\section{Discussion and Limitations}\label{sec:discussion}
+
+\paragraph{Why the method wins here.} Astronomy satisfies all three conditions of the mechanism: (1) low
+backbone bias (from the completeness model plus a threshold); (2) genuinely heteroskedastic confidence
+(positive $\sigma$-gain); (3) a strong, aleatoric shift (survey depth). Adaptive can thus exhibit both
+contributions: adaptive width and coverage recovery.
+
+\paragraph{Honesty about ``realness''.} The evaluation is \emph{semi-synthetic with a real anchor}: sources,
+magnitudes, fluxes and SNR are \emph{real} SDSS quantities. Because \texttt{probPSF} is a binary flag and the
+catalogue contains only detected sources, both the detection probability ($5\sigma$ completeness on real SNR)
+and the classification blur under shift are \emph{modelled} components, and the shift itself is
+\emph{induced} (controlled SNR reduction). This work does \emph{not} claim ``fully real'' or ``real
+cross-survey''. A fully-observational evaluation---e.g.\ a continuous classification score, or deep
+Stripe~82 co-adds versus single-epoch shallow data---is future work.
+
+\paragraph{Reading the metrics correctly.} Coverage and Winkler must be read \emph{together}: a method with
+smaller typical width but under-coverage is invalid, while an over-covering method (SAOCP) achieves coverage
+with useless intervals.
+
+%%===========================================================%%
+\section{Conclusion}\label{sec:conclusion}
+
+This paper has shown that Adaptive PB-JCI Online---designed for histopathology nucleus
+counting---\emph{transfers unchanged} to astronomical source counting, a very different scientific field. On real SDSS data under a
+survey-depth shift, it is the unique method that preserves valid joint coverage at the best interval score
+and remains stable across the entire shift range. The results support the \emph{cross-domain generality} of
+the method: one guaranteed-coverage counting recipe, running from life science to astrophysics.
+
+%%===========================================================%%
+\backmatter
+
+\bmhead{Declarations}
+\textbf{Originality.} This is original work, not published elsewhere nor under simultaneous submission.
+\textbf{Author contributions.} T.T.H.~Dinh: method implementation, experiments, analysis, and writing.
+V.H.~Duong: conceptualization, supervision, and manuscript revision.
+\textbf{Use of AI.} The authors used AI-assisted tools for text drafting and coding support; all
+experimental design, data, numerical results and conclusions were produced, verified and are owned by the
+authors (disclosed as required by ICEBA2026). \textbf{Data availability.} SDSS DR17 is public via
+CasJobs/astroquery; code and configurations are available for reproduction. \textbf{Competing interests.}
+The authors declare no competing interests.
+
+%%===========================================================%%
+\begin{thebibliography}{99}
+
+\bibitem{vovk2005} Vovk, V., Gammerman, A., Shafer, G.: Algorithmic Learning in a Random World. Springer
+(2005).
+
+\bibitem{gibbs2021} Gibbs, I., Cand\`es, E.: Adaptive conformal inference under distribution shift.
+In: NeurIPS (2021).
+
+\bibitem{gibbs2024} Gibbs, I., Cand\`es, E.: Conformal inference for online prediction with arbitrary
+distribution shifts. J. Mach. Learn. Res. (2024).
+
+\bibitem{barber2023} Barber, R.F., Cand\`es, E.J., Ramdas, A., Tibshirani, R.J.: Conformal prediction
+beyond exchangeability. Ann. Statist. \textbf{51}(2), 816--845 (2023).
+
+\bibitem{bhatnagar2023} Bhatnagar, A., Wang, H., Xiong, C., Bai, Y.: Improved online conformal prediction
+via strongly adaptive online learning. In: ICML (2023).
+
+\bibitem{sdssdr17} Abdurro'uf, et al.: The seventeenth data release of the Sloan Digital Sky Surveys (SDSS
+DR17). Astrophys. J. Suppl. Ser. \textbf{259}(2), 35 (2022).
+
+\bibitem{sdsstech} York, D.G., et al.: The Sloan Digital Sky Survey: technical summary. Astron. J.
+\textbf{120}(3), 1579--1587 (2000).
+
+\bibitem{ourcell} Dinh, T.T.H., Duong, V.H.: Adaptive Poisson--Binomial Joint Conformal Intervals for
+reliable cell counting under distribution shift. Journal of Combinatorial Optimization (under review, 2026).
+
+\end{thebibliography}
+
+\end{document}

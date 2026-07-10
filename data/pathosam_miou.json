@@ -1,0 +1,14 @@
+{
+  "n": 2228,
+  "subset": "clean_no_colon",
+  "per_class_miou": {
+    "Neoplastic": 0.5110121996206188,
+    "Inflammatory": 0.36771358250984854,
+    "Connective": 0.3229882018710057,
+    "Dead": 0.10358872477385539,
+    "Epithelial": 0.3744715393173826
+  },
+  "macro_per_class_miou": 0.33595484961854216,
+  "binary_fg_iou": 0.632721275720787,
+  "binary_fg_dice": 0.7582346993487528
+}

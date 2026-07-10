@@ -1,0 +1,42 @@
+# Large raw data — should live in Kaggle/HF, not git
+*.zip
+pannuke_raw/
+*.npy
+*.npz
+
+# Base SAM3 model weights (3.3GB) — download from Meta/HuggingFace, too large for git
+weights/sam3.pt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Local config / secrets
+.env
+*.key
+.kaggle/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Experiment outputs (regenerate from code)
+outputs/
+checkpoints/
+wandb/
+runs/
+*.pth
+*.safetensors
+
+# MoNuSAC: large converted data (173MB) + raw images — transfer via scp, never git
+data/monusac_converted.pkl
+MoNuSAC_images_and_annotations/
+
+data/nuinsseg/
+data/pannuke/
+work/

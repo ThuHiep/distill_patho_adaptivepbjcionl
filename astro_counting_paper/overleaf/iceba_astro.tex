@@ -1,0 +1,347 @@
+%% ICEBA2026 — Springer Nature Proceedings (sn-jnl). BAN TIENG VIET (de doc/duyet).
+%% Ban tieng Anh (nop chinh thuc) o file iceba_astro_en.tex cung thu muc.
+%%
+%% >>> Bien dich bang pdfLaTeX. Tieng Viet co dau nho babel + [T5]{fontenc}.
+%%     Neu dau bi loi -> doi Compiler sang XeLaTeX va thay fontenc/babel bang:
+%%       \usepackage{fontspec}
+%%       \usepackage{polyglossia}\setmainlanguage{vietnamese}
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
+
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+
+\addto\captionsvietnamese{%
+  \renewcommand{\abstractname}{Abstract}%
+  \renewcommand{\tablename}{Table}%
+  \renewcommand{\figurename}{Fig.}%
+  \renewcommand{\refname}{References}%
+  \renewcommand{\bibname}{References}%
+}
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{./}{../figures/}}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+
+\raggedbottom
+
+\begin{document}
+
+\title[Hiệu chỉnh conformal thích nghi cho đếm nguồn thiên văn]{Hiệu chỉnh conformal trực tuyến thích nghi
+cho đếm nguồn thiên văn dưới dịch chuyển độ sâu khảo sát}
+
+\author[1]{\fnm{Thi Thu Hiep} \sur{Dinh}}\email{dinhthithuhiep1@gmail.com}
+\author*[1]{\fnm{Viet Hang} \sur{Duong}}\email{hangdv@uit.edu.vn}
+
+\affil*[1]{\orgdiv{Khoa Khoa học Máy tính}, \orgname{Trường Đại học Công nghệ Thông tin (UIT), ĐHQG-HCM},
+\orgaddress{\city{TP. Hồ Chí Minh}, \country{Việt Nam}}}
+
+\abstract{%
+Đếm nguồn thiên văn là một tác vụ nền tảng trong thiên văn quan trắc, làm cơ sở cho các phép đo mật độ nguồn,
+thống kê quần thể và cấu trúc quy mô lớn. Tuy nhiên, hầu hết các pipeline phát hiện nguồn chỉ đưa ra ước lượng
+điểm mà không định lượng độ bất định, một hạn chế trở nên nghiêm trọng khi dữ liệu triển khai khác với dữ liệu
+hiệu chỉnh do thay đổi độ sâu khảo sát hoặc điều kiện quan trắc. Conformal prediction cung cấp khoảng dự đoán
+với bảo đảm coverage hữu hạn mẫu dưới giả định trao đổi được, song hiệu chỉnh tĩnh suy giảm dưới dịch chuyển
+phân phối, trong khi bài toán đếm đa lớp còn đòi hỏi phủ đồng thời toàn bộ vector số đếm. Bài báo áp dụng
+Adaptive PB-JCI Online, một khung hiệu chỉnh conformal trực tuyến vốn được phát triển cho bài toán đếm tế bào,
+sang bài toán đếm nguồn thiên văn. Phương pháp kết hợp thang phương sai Poisson–Binomial, hiệu chỉnh phủ đồng
+thời qua một điểm nonconformity dạng thống kê cực đại, và một cơ chế cập nhật cửa sổ trượt thích nghi. Các thí
+nghiệm được tiến hành trên $61\,423$ nguồn thật từ Sloan Digital Sky Survey DR17, sử dụng danh mục quang trắc
+chính thức làm backbone xác suất và một dịch chuyển độ sâu khảo sát có kiểm soát được tạo ra bằng suy giảm tỉ
+số tín hiệu trên nhiễu. Phương pháp đề xuất duy trì joint coverage hợp lệ khoảng $91\%$ qua mọi mức dịch
+chuyển, trong khi hiệu chỉnh tĩnh suy giảm từ $85\%$ xuống $9\%$. So với một số baseline conformal trực tuyến
+tiêu biểu, Adaptive PB-JCI đạt coverage hợp lệ đồng thời có điểm interval Winkler thấp nhất trong các phương
+pháp được đánh giá. Các kết quả này cho thấy một khung hiệu chỉnh đếm được phát triển cho ứng dụng khoa học
+sự sống có thể chuyển giao hiệu quả sang bài toán đếm nguồn thiên văn dưới dịch chuyển phân phối.
+}
+
+\keywords{conformal prediction, uncertainty quantification, count calibration, distribution shift,
+astronomical source counting}
+
+\maketitle
+
+%%===========================================================%%
+\section{Giới thiệu}\label{sec:intro}
+
+Đếm và phân loại nguồn thiên văn thành các lớp như sao và thiên hà là một tác vụ nền tảng trong vật lý thiên
+văn quan trắc. Nhiều đại lượng khoa học quan trọng, chẳng hạn mật độ nguồn theo vùng trời, hàm phân bố quần
+thể và tỉ lệ giữa các lớp nguồn, được suy ra trực tiếp từ số lượng và thành phần của các nguồn được phát
+hiện. Các khảo sát quang học hiện đại tạo ra danh mục gồm hàng triệu nguồn cùng với xác suất phân loại và các
+đặc trưng quang trắc đo được, từ đó số đếm theo từng lớp nguồn được sử dụng trong nhiều phân tích thống kê
+thiên văn.
+
+Tuy nhiên, các hệ đếm dựa trên phát hiện thường chỉ cung cấp một ước lượng điểm mà không định lượng độ bất
+định của kết quả. Trong thực tế, điều quan trọng không chỉ là số lượng nguồn được dự đoán mà còn là mức độ
+tin cậy đi kèm với dự đoán đó. Nhu cầu này trở nên đặc biệt cấp thiết khi dữ liệu triển khai khác với dữ liệu
+hiệu chỉnh do thay đổi thiết bị, độ sâu khảo sát hoặc điều kiện quan trắc. Trong những trường hợp như vậy,
+một mô hình vẫn có thể đạt sai số trung bình chấp nhận được nhưng tạo ra các dự đoán bị hiệu chỉnh kém trên
+dữ liệu ngoài miền.
+
+Conformal prediction là một khung thống kê cung cấp khoảng dự đoán với bảo đảm độ phủ hữu hạn mẫu dưới giả
+định trao đổi được giữa dữ liệu hiệu chỉnh và dữ liệu kiểm tra. Tuy nhiên, việc áp dụng conformal prediction
+cho bài toán đếm đa lớp gặp phải hai thách thức chính. Thứ nhất, các phương pháp hiệu chỉnh tĩnh dựa trên một
+tập hiệu chỉnh cố định thường suy giảm độ phủ khi dữ liệu triển khai xuất hiện dịch chuyển phân phối. Thứ
+hai, mục tiêu của bài toán đếm đa lớp không chỉ là bảo đảm độ phủ cho từng lớp riêng lẻ mà còn phải bảo đảm
+độ phủ đồng thời cho toàn bộ vector số đếm.
+
+Adaptive PB-JCI Online là một phương pháp hiệu chỉnh conformal trực tuyến được phát triển gần đây cho các bài
+toán đếm dựa trên xác suất~\cite{dinh2026adaptive}. Nghiên cứu này tập trung đánh giá tính tổng quát và khả
+năng chuyển giao của phương pháp sang một miền ứng dụng khoa học khác biệt đáng kể, cụ thể là bài toán đếm
+nguồn thiên văn.
+
+Các đóng góp chính của bài báo bao gồm:
+\begin{itemize}
+\item Chuyển giao Adaptive PB-JCI Online từ bài toán đếm tế bào sang bài toán đếm nguồn thiên văn trên một
+tập dữ liệu và backbone phân loại hoàn toàn khác.
+\item Xây dựng một benchmark dựa trên dữ liệu thực từ Sloan Digital Sky Survey (SDSS) DR17 với các mức dịch
+chuyển độ sâu khảo sát được kiểm soát cùng một tập baseline conformal trực tuyến đại diện.
+\item Chứng minh thực nghiệm rằng Adaptive PB-JCI Online là phương pháp duy nhất duy trì joint coverage hợp
+lệ trên toàn bộ dải dịch chuyển khảo sát, đồng thời đạt điểm Winkler thấp nhất trong số các phương pháp được
+đánh giá.
+\end{itemize}
+
+Conformal prediction cung cấp khoảng dự đoán không phụ thuộc phân phối với bảo đảm độ phủ hữu hạn mẫu dưới
+giả định trao đổi được giữa dữ liệu hiệu chỉnh và dữ liệu kiểm tra~\cite{vovk2005algorithmic}. Trong bối
+cảnh dự đoán trực tuyến dưới dịch chuyển phân phối, nhiều phương pháp đã được đề xuất nhằm duy trì coverage
+theo thời gian, bao gồm Adaptive Conformal Inference (ACI)~\cite{gibbs2021adaptive},
+FACI~\cite{gibbs2024conformal}, NexCP~\cite{barber2023conformal}, SAOCP~\cite{bhatnagar2023improved},
+COP~\cite{hu2026conformal} và các biến thể rolling-origin conformal prediction~\cite{halkiewicz2026rolling}.
+Tuy nhiên, các phương pháp này chủ yếu hướng tới dự đoán đơn biến, trong khi bài toán đếm đa lớp đòi hỏi độ
+phủ đồng thời cho toàn bộ vector số đếm. Khoảng trống này là động lực cho nghiên cứu hiện tại.
+
+%%===========================================================%%
+\section{Phương pháp}\label{sec:method}
+
+Adaptive PB-JCI Online là một tầng hiệu chỉnh conformal được xây dựng trên đầu ra của một backbone phát hiện
+và phân loại nguồn. Phương pháp gồm ba thành phần chính: (i) một thang phương sai dựa trên phân phối
+Poisson--Binomial để mô hình hóa độ bất định của số đếm, (ii) một điểm nonconformity dựa trên thống kê cực
+đại nhằm bảo đảm độ phủ đồng thời cho toàn bộ vector số đếm, và (iii) một cơ chế hiệu chỉnh trực tuyến sử
+dụng cửa sổ trượt thích nghi để duy trì coverage dưới dịch chuyển phân phối. Phần này trình bày ngắn gọn các
+thành phần chính của phương pháp nhằm bảo đảm tính tự chứa của bài báo.
+
+\subsection{Số đếm mềm và thang phương sai Poisson--Binomial}
+Với mỗi vùng quan sát (\emph{field}), backbone cung cấp xác suất phát hiện $s_i$ cho từng thực thể ứng viên
+$i$, cùng vector xác suất lớp $p_i[k]$. Thay vì sử dụng số đếm cứng, số đếm dự đoán của lớp $k$ được xác định
+bằng tổng kỳ vọng
+\[
+n_{\mathrm{pred}}[k]=\sum_i s_i\,p_i[k].
+\]
+Độ lệch chuẩn tương ứng được tính theo
+\begin{equation}
+\sigma[k]=\sqrt{\sum_i \big(s_i p_i[k]\big)\big(1-s_i p_i[k]\big)}. \label{eq:soft}
+\end{equation}
+Đại lượng $\sigma[k]$ tương ứng với độ lệch chuẩn của tổng các biến Bernoulli độc lập, tức phân phối
+Poisson--Binomial. Nhờ đó, độ rộng khoảng dự đoán được điều chỉnh theo mức độ bất định cục bộ của từng vùng
+quan sát: các vùng chứa nhiều thực thể có xác suất không chắc chắn sẽ tạo ra giá trị $\sigma[k]$ lớn hơn,
+trong khi các vùng có dự đoán rõ ràng sẽ có giá trị nhỏ hơn.
+
+\subsection{Nonconformity cho độ phủ đồng thời}
+Mục tiêu của bài toán là bảo đảm độ phủ đồng thời cho toàn bộ vector số đếm thay vì cho từng lớp riêng lẻ. Do
+đó, điểm nonconformity được định nghĩa dưới dạng thống kê cực đại chuẩn hóa qua tất cả các lớp:
+\begin{equation}
+S_t=\max_k \frac{\big|\,g_t[k]-n_{\mathrm{pred}}[k]\,\big|}{\sigma[k]}, \label{eq:maxstat}
+\end{equation}
+trong đó $g_t[k]$ là số đếm thực của lớp $k$. Cho $q$ là phân vị bậc $(1-\alpha)$ của các điểm nonconformity
+trên tập hiệu chỉnh, khoảng dự đoán cho từng lớp được xác định bởi
+\[
+\big[\,\max(0,\ n_{\mathrm{pred}}[k]-q\,\sigma[k]),\ \ n_{\mathrm{pred}}[k]+q\,\sigma[k]\,\big].
+\]
+Việc sử dụng thống kê cực đại cho phép chuyển yêu cầu độ phủ đồng thời của toàn bộ vector số đếm thành một
+điều kiện hiệu chỉnh duy nhất.
+
+\subsection{Cửa sổ hiệu chỉnh thích nghi trực tuyến}
+Để thích ứng với dữ liệu thay đổi theo thời gian, ngưỡng hiệu chỉnh $q$ được cập nhật trực tuyến thông qua
+một cửa sổ hiệu chỉnh có kích thước biến thiên. Gọi $w_t$ là kích thước cửa sổ tại thời điểm $t$, và
+$\hat c_t$ là độ phủ quan sát được trên một cửa sổ giám sát gần nhất. Kích thước cửa sổ được cập nhật theo
+quy tắc
+\begin{equation}
+w_{t+1}=
+\begin{cases}
+\max\!\big(w_{\min},\ \lfloor \rho^{-}\,w_t \rfloor\big), & \hat c_t < 1-\alpha,\\[4pt]
+\min\!\big(w_{\max},\ \lfloor \rho^{+}\,w_t \rfloor\big), & \hat c_t > 1-\alpha+\beta,\\[4pt]
+w_t, & \text{ngược lại},
+\end{cases}
+\label{eq:window}
+\end{equation}
+trong đó $\rho^{-}<1<\rho^{+}$ và $\beta>0$ là một biên trễ. Sau khi cập nhật $w_{t+1}$, ngưỡng $q$ được tính
+lại từ phân vị bậc $(1-\alpha)$ của $w_{t+1}$ điểm nonconformity gần nhất. Khi coverage giảm dưới mức mục
+tiêu, cửa sổ được thu hẹp để ngưỡng hiệu chỉnh phản ứng nhanh hơn với dữ liệu mới. Ngược lại, khi coverage
+vượt mục tiêu một lượng đủ lớn, cửa sổ được mở rộng nhằm giảm dao động của ước lượng. Cơ chế cập nhật trực
+tuyến này là thành phần then chốt giúp duy trì độ phủ dưới dịch chuyển phân phối, trong khi thang phương sai
+Poisson--Binomial chủ yếu đóng vai trò chuẩn hóa độ rộng khoảng dự đoán giữa các vùng quan sát có mức độ bất
+định khác nhau.
+
+%%===========================================================%%
+\section{Dữ liệu và thiết lập thực nghiệm}\label{sec:data}
+
+\subsection{Dữ liệu SDSS DR17}
+Nghiên cứu sử dụng dữ liệu từ Sloan Digital Sky Survey Data Release~17 (SDSS
+DR17)~\cite{sdss_dr17,sdss_technical}, một khảo sát quang học trong năm băng $u,g,r,i,z$. Sau khi lọc chất
+lượng (\texttt{mode=1}, \texttt{clean=1}), giữ hai lớp sao/thiên hà và chỉ giữ các nguồn có
+\texttt{psfFlux\_r} và \texttt{psfFluxIvar\_r} dương (để tính được SNR), tập dữ liệu thu được gồm $61\,423$
+nguồn ($25\,270$ sao và $36\,153$ thiên hà) với median tỉ số tín hiệu trên nhiễu (SNR) khoảng $11.1$. Vùng trời được chia thành $841$ ô lưới đóng vai
+trò các đơn vị đếm độc lập (field); các ô chỉ số chẵn tạo tập hiệu chỉnh (CAL, $421$ field) và các ô chỉ số
+lẻ tạo tập kiểm tra (TEST, $420$ field), bảo đảm sự tách biệt không gian giữa hai tập.
+
+\subsection{Backbone quang trắc}
+Mục tiêu của nghiên cứu là đánh giá hiệu chỉnh số đếm thay vì phát hiện nguồn, do đó pipeline quang trắc SDSS
+được sử dụng như một backbone cố định, không huấn luyện lại. Từ danh mục, mỗi nguồn cung cấp các đại lượng
+thật gồm flux, tỉ số tín hiệu trên nhiễu $\mathrm{SNR}_i=\texttt{psfFlux}_i\sqrt{\texttt{psfFluxIvar}_i}$ và
+nhãn phân loại sao/thiên hà. Cần lưu ý rằng trong SDSS, \texttt{probPSF} là một \emph{cờ nhị phân} ($0$ hoặc
+$1$) trùng với nhãn \texttt{type}, chứ không phải một xác suất được hiệu chỉnh; do đó việc gán lớp ở chế độ
+khảo sát sâu là gán cứng.
+
+Độ bất định theo từng nguồn, tức thành phần sinh ra thang phương sai Poisson--Binomial, được mô hình hóa trên
+SNR thật theo hai cơ chế. Thứ nhất, do danh mục chỉ chứa các nguồn đã phát hiện nên xác suất phát hiện không
+có sẵn và được lấy bằng hàm completeness logistic $s_i=\big[1+\exp(-(\mathrm{SNR}_i-\tau)/\kappa)\big]^{-1}$
+với $\tau=5$ (ngưỡng $5\sigma$) và $\kappa=1.5$. Thứ hai, dưới dịch chuyển độ sâu (mô tả bên dưới), nhãn lớp
+nhị phân được làm mờ dần về $0.5$ khi SNR giảm, phản ánh việc phân loại trở nên kém tin cậy đối với các nguồn
+mờ. Xác suất phát hiện và xác suất lớp thu được được dùng để tính số đếm mềm và thang phương sai
+trong~\eqref{eq:soft}; ở chế độ sâu, thang phương sai này chủ yếu phản ánh bất định phát hiện. Như vậy đây là
+một thiết lập \emph{bán tổng hợp}: các đại lượng quang trắc là thật, còn xác suất phát hiện và độ mờ phân
+loại là thành phần được mô hình hóa, neo trên SNR thật.
+
+\subsection{Dịch chuyển độ sâu khảo sát}
+Để tạo dịch chuyển phân phối có kiểm soát, SNR của từng nguồn được suy giảm theo
+\[
+\mathrm{SNR}_{\mathrm{shallow}}=\mathrm{SNR}_{\mathrm{deep}}/\texttt{DEPTH}.
+\]
+Khi \texttt{DEPTH} tăng, nhiều nguồn tiến gần hoặc rơi xuống dưới ngưỡng phát hiện, làm tăng độ bất định phân
+loại và suy giảm hiệu năng đếm. Tập hiệu chỉnh ứng với chế độ khảo sát sâu và tập kiểm tra ứng với chế độ
+nông; \texttt{DEPTH} vì vậy đóng vai trò điều khiển cường độ dịch chuyển trong toàn bộ thí nghiệm.
+
+\subsection{Thiết lập và chỉ số đánh giá}
+Ngưỡng completeness cho các thí nghiệm chính được chọn là ngưỡng tạo ra dịch chuyển đủ mạnh để hiệu chỉnh
+tĩnh suy giảm rõ trên tập kiểm tra trong khi vẫn giữ coverage lành mạnh trên tập hiệu chỉnh. Adaptive PB-JCI
+được so sánh với Static CP, ACI, NexCP, FACI, SAOCP, COP, Rolling-Origin CP và PB-JCI Fixed; tất cả được
+triển khai trên cùng một thống kê nonconformity dạng cực đại nhằm đánh giá joint coverage cho $K{=}2$ lớp.
+Các chỉ số báo cáo gồm joint coverage, coverage riêng từng lớp, độ rộng trung bình của khoảng và điểm
+Winkler~\cite{winkler1972decision} (càng thấp càng tốt). Coverage mục tiêu là $90\%$ ($\alpha=0.1$); các tham
+số cửa sổ thích nghi được giữ cố định trong mọi thí nghiệm ($w_{\min}=40$, $w_{\max}=300$, $\rho^{-}=0.9$,
+$\rho^{+}=1.05$, $\beta=0.03$, cửa sổ giám sát $50$ bước). Mỗi cấu hình được chạy trên năm seed và báo cáo
+dưới dạng trung bình kèm độ lệch chuẩn.
+
+%%===========================================================%%
+\section{Kết quả}\label{sec:results}
+
+\subsection{So sánh tại mức dịch chuyển đại diện}
+Tại mức dịch chuyển được lựa chọn cho đánh giá chính, coverage của phương pháp hiệu chỉnh tĩnh giảm từ
+$90.5\%$ trên tập hiệu chỉnh xuống còn $81.0\%$ trên tập kiểm tra, cho thấy sự xuất hiện rõ rệt của dịch
+chuyển phân phối. Trong khi đó, độ chệch của backbone gần như bằng không và giá trị $\sigma$-gain dương
+($+0.44$), xác nhận rằng thang phương sai Poisson--Binomial vẫn tương quan với sai số thực. Kết quả so sánh
+được trình bày trong Bảng~\ref{tab:main}.
+
+\begin{table}[h]
+\caption{So sánh joint $K{=}2$ tại một mức dịch chuyển cố định. Coverage và Winkler báo cáo dưới dạng trung
+bình $\pm$ độ lệch chuẩn trên $5$ seed, AvgW là giá trị trung bình; Winkler càng thấp càng tốt.}\label{tab:main}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Phương pháp & Coverage\,(\%) & AvgW & Winkler \\
+\midrule
+Static split-CP & $81.0 \pm 0.0$ & 0.03 & $2.84 \pm 0.00$ \\
+ACI~\cite{gibbs2021adaptive} & $89.7 \pm 0.1$ & 6.29 & $14.08 \pm 2.66$ \\
+NexCP~\cite{barber2023conformal} & $88.0 \pm 0.7$ & 0.21 & $2.23 \pm 0.06$ \\
+FACI~\cite{gibbs2024conformal} & $88.6 \pm 0.7$ & 0.26 & $2.19 \pm 0.06$ \\
+SAOCP~\cite{bhatnagar2023improved} & $99.3 \pm 0.2$ & 11.12 & $22.34 \pm 0.54$ \\
+COP~\cite{hu2026conformal} & $85.1 \pm 0.5$ & 0.10 & $2.52 \pm 0.04$ \\
+Rolling-Origin~\cite{halkiewicz2026rolling} & $88.5 \pm 0.3$ & 0.24 & $2.18 \pm 0.04$ \\
+PB-JCI Fixed & $85.7 \pm 0.9$ & 0.18 & $2.32 \pm 0.02$ \\
+\textbf{Adaptive PB-JCI} & $\mathbf{91.2 \pm 0.3}$ & 0.47 & $\mathbf{2.10 \pm 0.09}$ \\
+\botrule
+\end{tabular}
+\end{table}
+
+Bảng~\ref{tab:main} cho thấy Adaptive PB-JCI là phương pháp duy nhất đồng thời đạt coverage không thấp hơn
+mức mục tiêu ($91.2\%$) và điểm Winkler thấp nhất ($2.10$). Các phương pháp còn lại hoặc under-cover, hoặc
+đạt coverage bằng các khoảng dự đoán rộng hơn đáng kể (SAOCP, ACI).
+
+\subsection{Ổn định dưới cường độ dịch chuyển tăng dần}
+Bảng~\ref{tab:depth} trình bày joint coverage khi cường độ dịch chuyển tăng dần. Trong thiết lập này,
+coverage của phương pháp hiệu chỉnh tĩnh giảm từ $85.5\%$ xuống còn $9.0\%$, phản ánh sự suy giảm nghiêm
+trọng của hiệu chỉnh cố định khi khoảng cách giữa dữ liệu hiệu chỉnh và dữ liệu triển khai ngày càng lớn.
+
+\begin{table}[h]
+\caption{Joint coverage (\%) theo cường độ dịch chuyển. Adaptive PB-JCI luôn không thấp hơn mức mục tiêu
+trong khi các baseline suy giảm hoặc over-cover.}\label{tab:depth}
+\begin{tabular}{@{}lccccccccc@{}}
+\toprule
+Dịch chuyển & Static & ACI & NexCP & FACI & SAOCP & COP & Roll. & PB-Fix & \textbf{Adapt.} \\
+\midrule
+Nhẹ        & 85.5 & 89.8 & 88.7 & 88.8 & 98.3 & 87.3 & 89.2 & 87.9 & \textbf{91.4} \\
+Vừa        & 81.0 & 89.7 & 88.0 & 88.6 & 99.3 & 85.1 & 88.5 & 85.7 & \textbf{91.2} \\
+Mạnh       & 53.1 & 89.6 & 87.1 & 88.6 & 99.3 & 82.9 & 87.0 & 83.3 & \textbf{91.0} \\
+Rất mạnh   & 9.0  & 89.7 & 86.2 & 89.1 & 99.5 & 80.3 & 85.8 & 81.9 & \textbf{90.5} \\
+\botrule
+\end{tabular}
+\end{table}
+
+Ngược lại, Adaptive PB-JCI duy trì coverage ổn định quanh mức mục tiêu ($90.5$--$91.4\%$) trên toàn bộ dải
+khảo sát. Xu hướng này được thể hiện trực quan trong Hình~\ref{fig:depth}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.72\textwidth]{fig_pub_depth}
+\caption{Joint coverage theo cường độ dịch chuyển (\texttt{DEPTH}). Adaptive PB-JCI (xanh) bám sát mục tiêu
+$90\%$ (đường ngang nét đứt); SAOCP (cam) over-cover; hiệu chỉnh tĩnh (xám đậm, nét đứt) sụp đổ xuống $9\%$;
+các baseline còn lại (xám nhạt) lệch dần khỏi mục tiêu.}\label{fig:depth}
+\end{figure}
+
+\subsection{Động học khôi phục coverage}
+Hình~\ref{fig:recovery} minh họa coverage cuộn trên một dòng dữ liệu chuyển đột ngột từ khảo sát sâu sang
+khảo sát nông.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{fig_pub_recovery}
+\caption{Coverage cuộn sau một dịch chuyển đột ngột sâu$\to$nông (đường đứng: thời điểm shift; nền nhạt: giai
+đoạn khảo sát nông). Adaptive PB-JCI (xanh đậm) khôi phục về mức mục tiêu $90\%$ trong khoảng $30$ bước; hiệu
+chỉnh tĩnh (xám đậm, nét đứt) suy giảm kéo dài và SAOCP (cam) over-cover, các baseline còn lại vẽ mờ màu xám
+nhạt.}\label{fig:recovery}
+\end{figure}
+
+Sau điểm chuyển, các phương pháp ngưỡng cố định suy giảm coverage kéo dài còn SAOCP over-cover, trong khi
+Adaptive PB-JCI khôi phục coverage về gần mức mục tiêu trong khoảng $30$ bước và duy trì ổn định sau đó.
+
+%%===========================================================%%
+\section{Thảo luận}\label{sec:discussion}
+
+Kết quả cho thấy Adaptive PB-JCI phát huy hiệu quả khi backbone có độ chệch thấp, các xác suất đầu ra phản
+ánh đúng mức độ bất định (thể hiện qua $\sigma$-gain dương) và dịch chuyển phân phối xuất hiện theo hướng làm
+suy giảm chất lượng đếm. Trong điều kiện đó, thang phương sai Poisson--Binomial và cơ chế hiệu chỉnh trực
+tuyến bổ trợ cho nhau để duy trì coverage mục tiêu. Các kết quả vẫn giữ nguyên về mặt định tính khi $\kappa$
+được thay đổi trong khoảng $[1.0, 3.0]$.
+
+Nghiên cứu này tập trung vào hiệu chỉnh số đếm trên một danh mục SDSS cố định. Do nhãn \texttt{probPSF} của
+SDSS là nhị phân và danh mục chỉ chứa các nguồn đã phát hiện, cả xác suất phát hiện lẫn độ mờ phân loại dưới
+dịch chuyển đều là thành phần được mô hình hóa (neo trên SNR thật), nên benchmark mang tính bán tổng hợp. Một
+đánh giá hoàn toàn quan trắc, chẳng hạn dùng xác suất phân loại liên tục hoặc so sánh giữa nhiều khảo sát
+khác nhau, là hướng mở rộng tự nhiên trong tương lai.
+
+%%===========================================================%%
+\section{Kết luận}\label{sec:conclusion}
+
+Nghiên cứu này khảo sát khả năng chuyển giao Adaptive PB-JCI Online sang bài toán đếm nguồn thiên văn dưới
+dịch chuyển phân phối. Trên dữ liệu SDSS DR17, phương pháp là lựa chọn duy nhất duy trì joint coverage ở mức
+mục tiêu đồng thời đạt điểm Winkler thấp nhất trong số các phương pháp được đánh giá. Kết quả cho thấy các kỹ
+thuật hiệu chỉnh đếm có bảo đảm coverage có thể được chuyển giao hiệu quả từ khoa học sự sống sang vật lý
+thiên văn, và có tiềm năng áp dụng cho các bài toán đếm khác dưới dịch chuyển phân phối.
+
+%%===========================================================%%
+\backmatter
+
+\bmhead{Declarations}
+Đây là công trình gốc, chưa được công bố và không đồng thời được nộp ở nơi khác. Về đóng góp của các tác giả,
+T.T.H.~Dinh thực hiện cài đặt phương pháp, tiến hành thí nghiệm, phân tích và viết bản thảo, còn V.H.~Duong
+phụ trách ý tưởng, hướng dẫn và chỉnh sửa. Về việc sử dụng công cụ trí tuệ nhân tạo, nhóm tác giả có dùng các
+công cụ hỗ trợ trong soạn thảo văn bản và viết mã; toàn bộ thiết kế thí nghiệm, dữ liệu, kết quả và kết luận
+do các tác giả thực hiện, kiểm chứng và chịu trách nhiệm, phù hợp với yêu cầu công khai của ICEBA2026. Dữ
+liệu SDSS DR17 được cung cấp công khai qua CasJobs và astroquery. Các tác giả tuyên bố không có xung đột lợi
+ích.
+
+%%===========================================================%%
+\bibliography{references}
+
+\end{document}
