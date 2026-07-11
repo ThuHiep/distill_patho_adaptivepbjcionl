@@ -108,10 +108,11 @@ def build_teacher_density(samples, device, cache):
 
 
 # ===================== Phase B: train =====================
-def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, beta, bs):
+def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, beta, bs,
+          detach_mu=False):
     model = DensitySigmaUNet(ch).to(device)
     print(f"[B] DensitySigmaUNet ch={ch} params={sum(p.numel() for p in model.parameters())/1e6:.3f}M "
-          f"w=(dens {w_density}, count {w_count}, nll {w_nll}) beta={beta}")
+          f"w=(dens {w_density}, count {w_count}, nll {w_nll}) beta={beta} detach_mu={detach_mu}")
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
     for ep in range(epochs):
@@ -126,7 +127,7 @@ def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, be
                 np.stack([data[j]["density"] for j in idxs]))[:, None].to(device)
             gt = torch.tensor([data[j]["gt"] for j in idxs], device=device, dtype=torch.float32)
             dens_S, log_sigma = model(imgs)
-            out = r2_loss(dens_S, dT, log_sigma, gt, w_density, w_count, w_nll, beta)
+            out = r2_loss(dens_S, dT, log_sigma, gt, w_density, w_count, w_nll, beta, detach_mu)
             opt.zero_grad(); out["loss"].backward(); opt.step()
             for key in ("loss", "L_density", "L_count", "L_nll"):
                 logs[key].append(float(out[key]))
@@ -162,6 +163,8 @@ def main():
     ap.add_argument("--w_count", type=float, default=0.01, help="L_count là |mu-GT| (thang chục) -> trọng số nhỏ")
     ap.add_argument("--w_nll", type=float, default=0.01, help="L_nll thang lớn -> trọng số nhỏ để cân với density MSE")
     ap.add_argument("--beta", type=float, default=0.5, help="beta-NLL (Seitzer 2022)")
+    ap.add_argument("--detach_mu", action="store_true",
+                    help="tách mu khỏi NLL (NLL chỉ dạy sigma) — sửa NLL-coupling làm hỏng MAE")
     ap.add_argument("--bs", type=int, default=16)
     ap.add_argument("--cache", default=f"{REPO}/work/teacher_density_nuinsseg.pkl")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
@@ -178,7 +181,7 @@ def main():
     print(f"indexed {len(samples)} pairs")
     data = build_teacher_density(samples, device, args.cache)
     model = train(data, device, args.epochs, args.student_ch, args.lr, list(range(len(data))),
-                  args.w_density, args.w_count, args.w_nll, args.beta, args.bs)
+                  args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
     out = predict_r2(model, data, device)
     pickle.dump(out, open(args.out, "wb"))
     mu = np.array([p["mu"] for p in out["preds"]])

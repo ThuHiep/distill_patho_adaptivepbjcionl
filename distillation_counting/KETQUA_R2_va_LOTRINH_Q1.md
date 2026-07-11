@@ -33,6 +33,24 @@ hẹp cho organ khó. Cluster khớp khoảng theo độ khó (từ σ heterosce
 - Winkler tốt hơn ~10% ≈ 1 std unpaired → **cần kiểm định paired** để khẳng định.
 - Mới **1 dataset (NuInsSeg K=1)**, mới **1 baseline (KD)** → chưa đủ tầm Q1.
 
+## 3b. Ablation (seeds=20, dòng R2-cluster mỗi biến thể) — ĐÃ CHẠY
+| Biến thể | MAE | worst-org | Winkler |
+|---|---|---|---|
+| KD (mốc) | 22.38 | 0.264 | 125.50 |
+| A: density-only (−count, −NLL) | 52.75 | 0.660 | 177.82 |
+| B: density+count (−NLL) | **9.45** | 0.582 | **68.13** |
+| C: full R2 (+NLL, coupled) | 18.38 | **0.757** | 112.78 |
+
+**Phát hiện (paired, đều p<1e-3):**
+1. Count loss bắt buộc cho μ: bỏ (A) → MAE nổ 52.75.
+2. **Clustered conformal là đòn bẩy conditional mạnh, độc lập NLL:** B (không NLL) đã kéo worst-org
+   0.264→0.582, Winkler 125→68, MAE 22→9.45. Phần lớn lợi ích đến từ density-count + cluster.
+3. **NLL thêm worst-org (0.582→0.757) NHƯNG làm hỏng MAE (9.45→18.38):** vì `Lnll~120 ≫ Lcount~20`
+   với trọng số bằng nhau → NLL áp đảo gradient μ, kéo μ lệch.
+
+**Sửa (đã implement, chưa train):** `--detach_mu` — tách μ khỏi NLL (NLL chỉ dạy σ; μ do count/density
+sở hữu). Kỳ vọng MAE~9.5 (như B) + worst-org~0.75 (như C). Chuẩn khi tách mean/variance head.
+
 ## 4. Lộ trình Q1 (thứ tự ưu tiên)
 1. **[ĐANG LÀM] Significance:** lưu per-seed, paired Wilcoxon/t-test Winkler & MAE (R2-cluster vs KD,
    vs R2-global). Xác nhận thắng là thật, không nhiễu.
