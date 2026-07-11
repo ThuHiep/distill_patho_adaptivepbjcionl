@@ -23,6 +23,7 @@ Rồi đo: python eval_coverage_transfer.py --teacher ../data/pathosam_nuinsseg_
 """
 from __future__ import annotations
 import argparse, os, pickle, sys, time
+from collections import defaultdict
 import numpy as np
 from PIL import Image
 import torch
@@ -97,7 +98,7 @@ def student_instance_scores(prob_map: torch.Tensor, label: np.ndarray):
     return torch.stack(s_list), np.asarray(keep, int)
 
 
-def train(data, device, epochs, ch, loss_kind, lr, train_idx, alpha, beta, gamma, delta=0.05, bs=6):
+def train(data, device, epochs, ch, loss_kind, lr, train_idx, alpha, beta, gamma, delta=0.05, bs=16):
     model = TinyUNet(ch).to(device)
     print(f"[B] student ch={ch} params={sum(p.numel() for p in model.parameters())/1e6:.3f}M "
           f"loss={loss_kind}")
@@ -114,7 +115,7 @@ def train(data, device, epochs, ch, loss_kind, lr, train_idx, alpha, beta, gamma
             logits = model(imgs)                 # (B,1,H,W)
             prob = torch.sigmoid(logits)
             total = imgs.new_zeros(())
-            mu_b, var_b, gt_b = [], [], []
+            mu_b, var_b, gt_b, grp_b = [], [], [], []
             for bi, j in enumerate(idxs):
                 d = data[j]
                 # NỀN: foreground KD — LUÔN có, giữ student tự sinh instance tốt (MAE ổn, width không nổ)
@@ -134,12 +135,15 @@ def train(data, device, epochs, ch, loss_kind, lr, train_idx, alpha, beta, gamma
                 mu_T, var_T = pb_moments(s_T, p_T)
                 # PBUD: distill VARIANCE (khớp độ bất định teacher, KHÔNG thay foreground)
                 total = total + gamma * ((torch.sqrt(var_S + 1e-6) - torch.sqrt(var_T + 1e-6)) ** 2).mean()
-                mu_b.append(mu_S); var_b.append(var_S); gt_b.append(gt)
-            # CCAD: Winkler khả vi (phạt CẢ width -> không thể cheat bằng phồng sigma)
+                mu_b.append(mu_S); var_b.append(var_S); gt_b.append(gt); grp_b.append(d["organ"])
+            # CCAD v3: Winkler CÂN BẰNG THEO ORGAN — mỗi organ trọng số bằng nhau (organ khó/hiếm
+            # KHÔNG bị organ phổ biến lấn át) + phạt width nên không cheat bằng phồng sigma.
             if loss_kind in ("ccad", "pbud_ccad") and gt_b:
-                wink = torch.stack([soft_winkler_loss(mu_b[i], var_b[i], gt_b[i], alpha)
-                                    for i in range(len(gt_b))]).mean()
-                total = total + delta * wink
+                wink_by_organ = defaultdict(list)
+                for i in range(len(gt_b)):
+                    wink_by_organ[grp_b[i]].append(soft_winkler_loss(mu_b[i], var_b[i], gt_b[i], alpha))
+                organ_means = torch.stack([torch.stack(v).mean() for v in wink_by_organ.values()])
+                total = total + delta * organ_means.mean()
             total = total / len(idxs)
             opt.zero_grad(); total.backward(); opt.step()
             logs.append(float(total.detach()))
@@ -158,6 +162,7 @@ def main():
     ap.add_argument("--beta", type=float, default=0.3)
     ap.add_argument("--gamma", type=float, default=0.3)
     ap.add_argument("--delta", type=float, default=0.05, help="trọng số Winkler (CCAD)")
+    ap.add_argument("--bs", type=int, default=16, help="batch size (lớn giúp nhiều organ cùng batch cho CCAD)")
     ap.add_argument("--thresh", type=float, default=0.5)
     ap.add_argument("--min_area", type=int, default=5)
     ap.add_argument("--cache", default=f"{REPO}/work/teacher_targets_pbud_nuinsseg.pkl")
@@ -175,7 +180,7 @@ def main():
     print(f"indexed {len(samples)} pairs")
     data = build_teacher_targets_pbud(samples, device, args.cache)
     model = train(data, device, args.epochs, args.student_ch, args.loss, args.lr,
-                  list(range(len(data))), args.alpha, args.beta, args.gamma, args.delta)
+                  list(range(len(data))), args.alpha, args.beta, args.gamma, args.delta, args.bs)
     out = student_predict(model, data, device, args.thresh, args.min_area)
     pickle.dump(out, open(args.out, "wb"))
     est = np.array([p["scores"].sum() for p in out["preds"]])
