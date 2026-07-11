@@ -89,16 +89,66 @@ Nhiều cluster → worst-org ↑, đổi lấy Winkler ↑ nhẹ + marginal con
 ~0.78** (chưa tới 0.90 — đúng giới hạn lý thuyết conditional coverage với ~10 ảnh/organ, Vovk/Barber).
 0.78 vs KD 0.264 = cải thiện lớn. Chốt **n_clusters=5** (không đẩy tối đa, tránh over-tuning).
 
-## 4. Lộ trình Q1 (thứ tự ưu tiên)
-1. **[ĐANG LÀM] Significance:** lưu per-seed, paired Wilcoxon/t-test Winkler & MAE (R2-cluster vs KD,
-   vs R2-global). Xác nhận thắng là thật, không nhiễu.
-2. **[ĐANG LÀM] Ablation** (bắt buộc Q1): density-KD → +count → +NLL(full) → ±cluster. Tách đóng góp
-   từng thành phần. **Giả thuyết cần chứng minh:** NLL (σ heteroscedastic) là thứ khiến cluster hiệu
-   quả; bỏ NLL → σ vô nghĩa → cluster không đẩy được worst-org.
-3. **Đẩy worst-org → 0.90:** thử n_clusters, student ch=64, hoặc shrinkage per-organ.
-4. **Compression sweep** (ch=16/32/64): story "nén mạnh vẫn giữ reliability + accuracy".
-5. **Dataset 2** (MoNuSAC/PanNuke, K>1): cần distill type-head → chứng minh nhất quán đa dataset.
-6. **Baseline mạnh hơn:** student supervised-from-scratch; nếu được, so method nhẹ đã công bố.
+## 4. Lộ trình Q1 (trạng thái)
+1. ✅ **Significance** (paired Wilcoxon): R2-cluster vs KD Winkler −65 (p=1.9e−6), MAE −12 (p=1.9e−6).
+2. ✅ **Ablation**: density→+count→+NLL→±cluster. NLL-coupling làm hỏng MAE → sửa bằng `--detach_mu`.
+3. ✅ **Đẩy worst-org**: n_clusters sweep → chốt 5 (worst-org 0.773, trần thực tế ~0.78).
+4. ✅ **Compression sweep** (ch=16/32/64): ch=32 sweet spot, ch=16 (~0.5M) vẫn thắng KD.
+5. ⏳ **Dataset 2 (PanNuke)** — ĐANG LÀM. Code đã xong (mục 7). Chạy 3a (K=1) rồi 3b (K>1).
+6. ⬜ **Baseline mạnh hơn**: supervised-GT đã có (mục 3c); thêm so method nhẹ đã công bố nếu được.
+
+## 7. ▶ TIẾP THEO (resume sau khi ngủ) — PanNuke dataset 2
+
+### 7.0 Trạng thái vast khi tạm ngừng
+- **STOP (không DESTROY) instance** để giữ: `/workspace/penv` (env PathoSAM), data PanNuke đã tải,
+  và mọi cache teacher (`work/*.pkl`). DESTROY = mất hết, phải setup lại từ đầu (~30 phút + tải lại).
+- PanNuke đã tải xong: `data/pannuke/fold{1,2,3}/Fold {N}/images/fold{N}/images.npy` (cấu trúc KHỚP
+  `PanNukeFold`). Root dùng: `--pannuke_root /workspace/sam3_research/data/pannuke`.
+- Code PanNuke ĐÃ push chưa? Nếu chưa: trên Mac `git add -A distillation_counting && git commit && git push`;
+  trên vast `git pull`.
+
+### 7.1 KIỂM TRƯỚC (bắt buộc): PanNuke có types.npy không?
+`worst-org`/conditional coverage cần nhóm theo **tissue type**. Nếu thiếu types.npy → tất cả 'unknown'
+→ mất phân tích organ-wise. Chạy:
+```bash
+find /workspace/sam3_research/data/pannuke -name "types.npy"
+```
+- CÓ → tốt, chạy tiếp 7.2.
+- KHÔNG → báo lại; ta dùng nhóm thay thế (vd bin theo GT-count) hoặc chỉ báo marginal cho PanNuke.
+
+### 7.2 Chạy 3a — PanNuke như K=1 (BẮT ĐẦU 1 FOLD cho rẻ ~1.5h)
+```bash
+cd /workspace/sam3_research/distillation_counting
+M="/workspace/bin/micromamba run -p /workspace/penv"
+RT=/workspace/sam3_research/data/pannuke
+
+# R2-detach ch=32 (teacher density PathoSAM tự build cache lần đầu ~45' cho fold3)
+REPO=/workspace/sam3_research $M python distill_student_r2.py --dataset pannuke \
+  --pannuke_root $RT --pannuke_folds 3 --epochs 80 --student_ch 32 \
+  --w_density 1.0 --w_count 0.01 --w_nll 0.01 --detach_mu --out work/student_r2_pannuke_f3.pkl
+
+# KD baseline ch=32 (teacher foreground, lượt PathoSAM thứ 2 ~45')
+REPO=/workspace/sam3_research $M python distill_student_nuinsseg.py --dataset pannuke \
+  --pannuke_root $RT --pannuke_folds 3 --lambda_kd 1.0 --epochs 60 --student_ch 32 \
+  --out work/student_kd_pannuke_f3.pkl
+
+# CỔNG generalization: R2 có thắng KD giống NuInsSeg không?
+REPO=/workspace/sam3_research $M python eval_r2_grouped.py \
+  --preds work/student_r2_pannuke_f3.pkl --kd work/student_kd_pannuke_f3.pkl \
+  --seeds 20 --n_clusters 5 --min_group 15 --out grouped_pannuke_f3.json
+```
+**Đọc cổng:** R2-cluster vs KD — Winkler thấp hơn + worst-org cao hơn (paired p<0.05)? Nếu CÓ →
+core generalize sang dataset 2 → mở rộng cả 3 fold (`--pannuke_folds 1,2,3`) rồi làm 3b. Nếu KHÔNG →
+phân tích vì sao (PanNuke ảnh nhỏ 256, mật độ khác NuInsSeg) trước khi đi tiếp.
+
+### 7.3 Chạy 3b — PanNuke K>1 (SAU khi 3a dương tính) — CHƯA code
+Thiết kế (hybrid, xem mục "Thách thức K>1"): student 5 density-head + 5 log-σ; total density distill từ
+PathoSAM (class-agnostic); per-class density supervised từ GT type (PanNuke masks 5 kênh); NLL per-class;
+clustered conformal per-class. TODO code: (a) `DensitySigmaUNet` → K kênh out; (b) `r2_loss` cộng per-class;
+(c) build per-class GT density; (d) eval per-class Winkler/coverage (macro). Tái dùng được `type_head`/
+`pannuke_loader` của Paper 1.
+
+## 5. Đóng góp dự kiến (định vị paper)
 
 ## 5. Đóng góp dự kiến (định vị paper)
 - **Method:** Distributional Count Distillation — nén foundation model đếm (PathoSAM/SAM3) → student nhẹ
