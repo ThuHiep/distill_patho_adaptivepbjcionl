@@ -90,7 +90,28 @@ def eval_scheme(mu, sigma, gt, organs, alpha, seeds, cal_ratio, min_organ_imgs,
     def ms(k): v = np.array([d[k] for d in per_seed]); return {"mean": float(v.mean()), "std": float(v.std())}
     cond = organ_conditional_stats(pooled, target, min_organ_imgs)
     return {"scheme": scheme, "coverage": ms("coverage"), "width": ms("width"),
-            "winkler": ms("winkler"), "mae": ms("mae"), "conditional": cond}
+            "winkler": ms("winkler"), "mae": ms("mae"), "conditional": cond,
+            # per-seed (CÙNG thứ tự seed cho mọi scheme -> so PAIRED được)
+            "winkler_seeds": [d["winkler"] for d in per_seed],
+            "mae_seeds": [d["mae"] for d in per_seed]}
+
+
+def paired_test(a, b, name):
+    """Paired Wilcoxon (a=ours, b=baseline) trên per-seed. In effect + p. a<b (Winkler/MAE thấp=tốt)."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    diff = a.mean() - b.mean()
+    try:
+        from scipy.stats import wilcoxon
+        if np.allclose(a, b):
+            print(f"  {name}: giống hệt (Δ=0)"); return
+        stat, p = wilcoxon(a, b)
+        sig = "CÓ ý nghĩa (p<0.05)" if p < 0.05 else "CHƯA có ý nghĩa (p>=0.05)"
+        print(f"  {name}: Δ(ours−base)={diff:+.2f}  paired-Wilcoxon p={p:.4g}  -> {sig}")
+    except Exception as e:
+        # fallback: paired t xấp xỉ bằng std của hiệu
+        d = a - b
+        t = d.mean() / (d.std(ddof=1) / np.sqrt(len(d)) + 1e-12)
+        print(f"  {name}: Δ={diff:+.2f}  paired-t≈{t:.2f} (scipy lỗi: {type(e).__name__})")
 
 
 def run(r2_path, kd_path, alpha, seeds, cal_ratio, min_organ_imgs, min_group, n_clusters):
@@ -142,6 +163,16 @@ def pretty(res):
     else:
         print("  -> Không scheme nhóm nào vừa tăng worst-org vừa giữ Winkler. σ per-image của R2 đã là "
               "đòn bẩy chính; Mondrian/cluster không thêm được (ít mẫu/organ). Trung thực ghi nhận.")
+
+    # ---- paired significance (per-seed) ----
+    rows = res["rows"]
+    if "R2-cluster" in rows:
+        print("\n[SIGNIFICANCE] paired per-seed (ours = R2-cluster):")
+        oc = rows["R2-cluster"]
+        if "KD-global" in rows:
+            paired_test(oc["winkler_seeds"], rows["KD-global"]["winkler_seeds"], "Winkler vs KD-global")
+            paired_test(oc["mae_seeds"], rows["KD-global"]["mae_seeds"], "MAE     vs KD-global")
+        paired_test(oc["winkler_seeds"], rows["R2-global"]["winkler_seeds"], "Winkler vs R2-global")
 
 
 def main():
