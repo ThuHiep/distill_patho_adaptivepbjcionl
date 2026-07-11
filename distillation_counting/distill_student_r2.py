@@ -76,28 +76,42 @@ class DensitySigmaUNet(nn.Module):
 
 # ===================== Phase A: teacher density targets =====================
 @torch.no_grad()
-def build_teacher_density(samples, device, cache):
-    from pathosam_lib import load_pathosam, pathosam_instances  # verified
+def build_teacher_density(samples, device, cache, use_gt=False):
+    """use_gt=False: density target = instance PathoSAM (distill từ foundation model).
+    use_gt=True : density target = instance GT NuInsSeg (baseline SUPERVISED, không dùng teacher)
+                  -> tách được GIÁ TRỊ của foundation-model teacher."""
     if os.path.exists(cache):
         print(f"[A] load cache {cache}")
         return pickle.load(open(cache, "rb"))
-    predictor, segmenter = load_pathosam(device)
+    if not use_gt:
+        from pathosam_lib import load_pathosam, pathosam_instances  # verified
+        predictor, segmenter = load_pathosam(device)
     data = []
     t0 = time.time()
     for k, s in enumerate(samples):
         img = np.asarray(Image.open(s["image"]).convert("RGB"))
-        masks, scores, _ = pathosam_instances(img, predictor, segmenter)
-        # density_T tại IMG_SIZE: mỗi instance góp khối lượng 1 chia đều trên diện tích -> sum=n
-        dens = np.zeros((IMG_SIZE, IMG_SIZE), np.float32)
-        for m in masks:
-            mr = np.asarray(Image.fromarray(m.astype(np.uint8)).resize(
-                (IMG_SIZE, IMG_SIZE), Image.NEAREST)).astype(bool)
-            a = int(mr.sum())
-            if a > 0:
-                dens[mr] += 1.0 / a
-        img_r = np.asarray(Image.fromarray(img).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
         m = _load_mask(s["mask"])
         gt = int(len(np.unique(m)) - (1 if (m == 0).any() else 0))
+        dens = np.zeros((IMG_SIZE, IMG_SIZE), np.float32)
+        if use_gt:
+            # instance từ label GT: mỗi id != 0 là 1 nhân
+            for iid in np.unique(m):
+                if iid == 0:
+                    continue
+                mr = np.asarray(Image.fromarray((m == iid).astype(np.uint8)).resize(
+                    (IMG_SIZE, IMG_SIZE), Image.NEAREST)).astype(bool)
+                a = int(mr.sum())
+                if a > 0:
+                    dens[mr] += 1.0 / a
+        else:
+            masks, scores, _ = pathosam_instances(img, predictor, segmenter)
+            for mask in masks:
+                mr = np.asarray(Image.fromarray(mask.astype(np.uint8)).resize(
+                    (IMG_SIZE, IMG_SIZE), Image.NEAREST)).astype(bool)
+                a = int(mr.sum())
+                if a > 0:
+                    dens[mr] += 1.0 / a
+        img_r = np.asarray(Image.fromarray(img).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
         data.append({"img": img_r.astype(np.uint8), "density": dens,
                      "gt": float(gt), "organ": s["organ"]})
         if (k + 1) % 100 == 0:
@@ -165,6 +179,8 @@ def main():
     ap.add_argument("--beta", type=float, default=0.5, help="beta-NLL (Seitzer 2022)")
     ap.add_argument("--detach_mu", action="store_true",
                     help="tách mu khỏi NLL (NLL chỉ dạy sigma) — sửa NLL-coupling làm hỏng MAE")
+    ap.add_argument("--use_gt_density", action="store_true",
+                    help="baseline SUPERVISED: density target từ GT NuInsSeg thay vì teacher PathoSAM")
     ap.add_argument("--bs", type=int, default=16)
     ap.add_argument("--cache", default=f"{REPO}/work/teacher_density_nuinsseg.pkl")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
@@ -179,7 +195,10 @@ def main():
 
     samples = build_index(find_root())
     print(f"indexed {len(samples)} pairs")
-    data = build_teacher_density(samples, device, args.cache)
+    cache = args.cache
+    if args.use_gt_density and cache == f"{REPO}/work/teacher_density_nuinsseg.pkl":
+        cache = f"{REPO}/work/gt_density_nuinsseg.pkl"  # cache RIÊNG để không đè teacher density
+    data = build_teacher_density(samples, device, cache, use_gt=args.use_gt_density)
     model = train(data, device, args.epochs, args.student_ch, args.lr, list(range(len(data))),
                   args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
     out = predict_r2(model, data, device)

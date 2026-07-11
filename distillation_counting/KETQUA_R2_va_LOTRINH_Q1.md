@@ -48,8 +48,15 @@ hẹp cho organ khó. Cluster khớp khoảng theo độ khó (từ σ heterosce
 3. **NLL thêm worst-org (0.582→0.757) NHƯNG làm hỏng MAE (9.45→18.38):** vì `Lnll~120 ≫ Lcount~20`
    với trọng số bằng nhau → NLL áp đảo gradient μ, kéo μ lệch.
 
-**Sửa (đã implement, chưa train):** `--detach_mu` — tách μ khỏi NLL (NLL chỉ dạy σ; μ do count/density
-sở hữu). Kỳ vọng MAE~9.5 (như B) + worst-org~0.75 (như C). Chuẩn khi tách mean/variance head.
+**Sửa `--detach_mu` (ĐÃ TRAIN — cấu hình CHỐT):** tách μ khỏi NLL (NLL chỉ dạy σ). Kết quả R2-cluster:
+MAE **10.12**, worst-org **0.753**, Winkler **60.41**, marg.cov 0.909 — lấy MAE thấp của B + worst-org
+cao của C + Winkler thấp nhất. **vs KD (paired Wilcoxon):** Winkler −65.09 (p=1.9e−6), MAE −12.26
+(p=1.9e−6), worst-org 0.264→0.753. Đây là **cấu hình R2 chốt cho các thí nghiệm sau**
+(`work/student_r2_detach.pkl`).
+
+### Cấu hình R2 chốt
+`distill_student_r2.py --epochs 80 --student_ch 32 --w_density 1.0 --w_count 0.01 --w_nll 0.01 --detach_mu`
++ eval `eval_r2_grouped.py --n_clusters 3 --min_group 15` (scheme **cluster**).
 
 ## 4. Lộ trình Q1 (thứ tự ưu tiên)
 1. **[ĐANG LÀM] Significance:** lưu per-seed, paired Wilcoxon/t-test Winkler & MAE (R2-cluster vs KD,
