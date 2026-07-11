@@ -56,6 +56,19 @@ def pbud_loss(s_S: torch.Tensor, p_S: torch.Tensor,
             "L_mean": L_mean.detach(), "L_var": L_var.detach()}
 
 
+def soft_winkler_loss(mu: torch.Tensor, var: torch.Tensor, gt: torch.Tensor,
+                      alpha: float = 0.1, k: float = 1.6449) -> torch.Tensor:
+    """Interval score (Winkler) KHẢ VI cho khoảng [mu-k·sigma, mu+k·sigma] ở mức cố định k.
+    Phạt CẢ width LẪN miscoverage → student KHÔNG thể 'thắng' bằng cách phồng sigma (width nổ
+    thì Winkler tăng). Đây là cách chặn nghiệm suy biến của CCAD v1. Trả scalar (mean over K)."""
+    sigma = torch.sqrt(var + EPS)
+    lo = mu - k * sigma
+    hi = mu + k * sigma
+    width = hi - lo
+    penalty = (2.0 / alpha) * (torch.relu(lo - gt) + torch.relu(gt - hi))
+    return (width + penalty).mean()
+
+
 def standardized_residual(mu_S: torch.Tensor, var_S: torch.Tensor,
                           gt: torch.Tensor) -> torch.Tensor:
     """Score chuẩn hoá kiểu conformal joint: max_k |gt_k - mu_k| / sigma_k. Khả vi. Scalar."""

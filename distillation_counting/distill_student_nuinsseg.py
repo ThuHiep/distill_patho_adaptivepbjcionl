@@ -256,7 +256,8 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(args.cache) or ".", exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"device={device}")
     np.random.seed(args.seed); torch.manual_seed(args.seed)
