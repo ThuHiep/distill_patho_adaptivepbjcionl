@@ -76,6 +76,58 @@ class DensitySigmaUNet(nn.Module):
 
 # ===================== Phase A: teacher density targets =====================
 @torch.no_grad()
+def build_pannuke_density(root, folds, device, cache, use_gt=False):
+    """Dataset 2 (generalization): PanNuke như K=1 (TỔNG số nhân). Tái dùng PanNukeFold (đọc .npy).
+    organ := tissue type (19 loại) cho conditional coverage. density total class-agnostic (giống
+    NuInsSeg). use_gt=True -> density từ instance GT (5 kênh gộp); False -> từ PathoSAM."""
+    from pannuke_loader import PanNukeFold  # kaggle/lib (đã trong sys.path)
+    if os.path.exists(cache):
+        print(f"[A] load cache {cache}")
+        return pickle.load(open(cache, "rb"))
+    if not use_gt:
+        from pathosam_lib import load_pathosam, pathosam_instances
+        predictor, segmenter = load_pathosam(device)
+    data = []
+    t0 = time.time()
+    n_done = 0
+    for fold in folds:
+        pf = PanNukeFold(root, fold)
+        for i in range(len(pf)):
+            s = pf[i]
+            img = s["image"]                          # (256,256,3) uint8
+            gt = int(s["counts"].sum())               # tổng nhân 5 lớp
+            dens = np.zeros((IMG_SIZE, IMG_SIZE), np.float32)
+            if use_gt:
+                for k in range(5):
+                    lab = s["masks"][k]
+                    for iid in np.unique(lab):
+                        if iid == 0:
+                            continue
+                        mr = np.asarray(Image.fromarray((lab == iid).astype(np.uint8)).resize(
+                            (IMG_SIZE, IMG_SIZE), Image.NEAREST)).astype(bool)
+                        a = int(mr.sum())
+                        if a > 0:
+                            dens[mr] += 1.0 / a
+            else:
+                masks, scores, _ = pathosam_instances(img, predictor, segmenter)
+                for mask in masks:
+                    mr = np.asarray(Image.fromarray(mask.astype(np.uint8)).resize(
+                        (IMG_SIZE, IMG_SIZE), Image.NEAREST)).astype(bool)
+                    a = int(mr.sum())
+                    if a > 0:
+                        dens[mr] += 1.0 / a
+            img_r = np.asarray(Image.fromarray(img).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
+            data.append({"img": img_r.astype(np.uint8), "density": dens,
+                         "gt": float(gt), "organ": s["tissue"]})
+            n_done += 1
+            if n_done % 200 == 0:
+                print(f"[A] {n_done} imgs {(time.time()-t0)/n_done:.2f}s/img")
+    pickle.dump(data, open(cache, "wb"))
+    print(f"[A] saved {cache} ({len(data)} imgs)")
+    return data
+
+
+@torch.no_grad()
 def build_teacher_density(samples, device, cache, use_gt=False):
     """use_gt=False: density target = instance PathoSAM (distill từ foundation model).
     use_gt=True : density target = instance GT NuInsSeg (baseline SUPERVISED, không dùng teacher)
@@ -182,23 +234,32 @@ def main():
     ap.add_argument("--use_gt_density", action="store_true",
                     help="baseline SUPERVISED: density target từ GT NuInsSeg thay vì teacher PathoSAM")
     ap.add_argument("--bs", type=int, default=16)
-    ap.add_argument("--cache", default=f"{REPO}/work/teacher_density_nuinsseg.pkl")
+    ap.add_argument("--dataset", choices=["nuinsseg", "pannuke"], default="nuinsseg")
+    ap.add_argument("--pannuke_root", default="/workspace/sam3_research/data/pannuke")
+    ap.add_argument("--pannuke_folds", default="1,2,3", help="fold PanNuke dùng, vd '1,2,3' hoặc '3'")
+    ap.add_argument("--cache", default=None, help="mặc định tự đặt theo dataset")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    os.makedirs(os.path.dirname(args.cache) or ".", exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"device={device}")
+    print(f"device={device} dataset={args.dataset}")
     np.random.seed(args.seed); torch.manual_seed(args.seed)
 
-    samples = build_index(find_root())
-    print(f"indexed {len(samples)} pairs")
-    cache = args.cache
-    if args.use_gt_density and cache == f"{REPO}/work/teacher_density_nuinsseg.pkl":
-        cache = f"{REPO}/work/gt_density_nuinsseg.pkl"  # cache RIÊNG để không đè teacher density
-    data = build_teacher_density(samples, device, cache, use_gt=args.use_gt_density)
+    tag = "gt" if args.use_gt_density else "teacher"
+    if args.dataset == "pannuke":
+        cache = args.cache or f"{REPO}/work/{tag}_density_pannuke.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
+        folds = [int(x) for x in args.pannuke_folds.split(",")]
+        data = build_pannuke_density(args.pannuke_root, folds, device, cache,
+                                     use_gt=args.use_gt_density)
+    else:
+        cache = args.cache or f"{REPO}/work/{tag}_density_nuinsseg.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
+        samples = build_index(find_root())
+        print(f"indexed {len(samples)} pairs")
+        data = build_teacher_density(samples, device, cache, use_gt=args.use_gt_density)
     model = train(data, device, args.epochs, args.student_ch, args.lr, list(range(len(data))),
                   args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
     out = predict_r2(model, data, device)

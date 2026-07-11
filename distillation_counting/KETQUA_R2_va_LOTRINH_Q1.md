@@ -58,6 +58,37 @@ cao của C + Winkler thấp nhất. **vs KD (paired Wilcoxon):** Winkler −65.
 `distill_student_r2.py --epochs 80 --student_ch 32 --w_density 1.0 --w_count 0.01 --w_nll 0.01 --detach_mu`
 + eval `eval_r2_grouped.py --n_clusters 3 --min_group 15` (scheme **cluster**).
 
+## 3c. Compression sweep + baseline supervised (ĐÃ CHẠY, R2-detach, cluster, seeds=20)
+| student ch | params | MAE | worst-org | Winkler |
+|---|---|---|---|---|
+| 16 | ~0.5M | 10.97 | 0.742 | 72.34 |
+| **32 (chốt)** | ~1.9M | **10.12** | **0.753** | **60.41** |
+| 64 | ~7.7M | 11.68 | 0.718 | 72.60 |
+| KD (mốc) | ~1.9M | 22.38 | 0.264 | 125.50 |
+
+Ngay cả ch=16 (~0.5M, ~600× nhỏ hơn PathoSAM) vẫn thắng KD mọi trục (p<1e−5). ch=32 sweet spot.
+
+**Baseline supervised (GT density) vs distilled (PathoSAM), ch=32:**
+| | MAE | worst-org | Winkler |
+|---|---|---|---|
+| supervised (GT) | 9.49 | 0.711 | 58.23 |
+| distilled (teacher) | 10.12 | **0.753** | 60.41 |
+
+Supervised nhỉnh MAE/Winkler; **distilled TỐT HƠN worst-org (0.753 vs 0.711)** → teacher foundation model
+đem lợi ích *conditional reliability*, không chỉ bắt chước nhãn (+ dùng được nơi không nhãn). Cả hai ≫ KD.
+
+## 3d. n_clusters sweep — đẩy worst-org (ĐÃ CHẠY, eval-only trên ch=32 detach)
+| n_clusters | worst-org | Winkler | marg.cov | #under |
+|---|---|---|---|---|
+| 2 | 0.753 | 59.98 | 0.906 | 6/27 |
+| 3 | 0.753 | 60.41 | 0.909 | 6/27 |
+| 5 (chốt) | 0.773 | 61.94 | 0.916 | 4/27 |
+| 6 | 0.784 | 62.48 | 0.922 | 4/27 |
+
+Nhiều cluster → worst-org ↑, đổi lấy Winkler ↑ nhẹ + marginal conservative dần. **Trần thực tế worst-org
+~0.78** (chưa tới 0.90 — đúng giới hạn lý thuyết conditional coverage với ~10 ảnh/organ, Vovk/Barber).
+0.78 vs KD 0.264 = cải thiện lớn. Chốt **n_clusters=5** (không đẩy tối đa, tránh over-tuning).
+
 ## 4. Lộ trình Q1 (thứ tự ưu tiên)
 1. **[ĐANG LÀM] Significance:** lưu per-seed, paired Wilcoxon/t-test Winkler & MAE (R2-cluster vs KD,
    vs R2-global). Xác nhận thắng là thật, không nhiễu.

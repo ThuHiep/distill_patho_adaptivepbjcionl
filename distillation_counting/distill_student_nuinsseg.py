@@ -186,6 +186,43 @@ def build_teacher_targets(samples, device, cache):
     return data
 
 
+@torch.no_grad()
+def build_pannuke_targets(root, folds, device, cache):
+    """KD baseline trên PanNuke (K=1 tổng nhân). Teacher foreground = PathoSAM. organ=tissue."""
+    from pathosam_lib import load_pathosam
+    from pannuke_loader import PanNukeFold
+    if os.path.exists(cache):
+        print(f"[A] load cache {cache}")
+        return pickle.load(open(cache, "rb"))
+    predictor, segmenter = load_pathosam(device)
+    data = []
+    t0 = time.time(); n_done = 0
+    for fold in folds:
+        pf = PanNukeFold(root, fold)
+        for i in range(len(pf)):
+            s = pf[i]
+            img = s["image"]
+            segmenter.initialize(img); _ = segmenter.generate()
+            fg = np.asarray(segmenter._foreground, dtype=np.float32)
+            img_r = np.asarray(Image.fromarray(img).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
+            fg_t = torch.from_numpy(fg)[None, None]
+            fg_r = F.interpolate(fg_t, size=(IMG_SIZE, IMG_SIZE), mode="bilinear",
+                                 align_corners=False)[0, 0].numpy()
+            fg_r = np.clip(fg_r, 0.0, 1.0)
+            gtbin = (s["masks"].sum(0) > 0).astype(np.float32)   # union 5 kênh
+            gtbin_r = np.asarray(Image.fromarray((gtbin * 255).astype(np.uint8))
+                                 .resize((IMG_SIZE, IMG_SIZE), Image.NEAREST)) / 255.0
+            data.append({"img": img_r.astype(np.uint8), "fg": fg_r.astype(np.float32),
+                         "gtbin": gtbin_r.astype(np.float32), "gt": float(int(s["counts"].sum())),
+                         "organ": s["tissue"]})
+            n_done += 1
+            if n_done % 200 == 0:
+                print(f"[A] {n_done} imgs {(time.time()-t0)/n_done:.2f}s/img")
+    pickle.dump(data, open(cache, "wb"))
+    print(f"[A] saved {cache} ({len(data)} imgs)")
+    return data
+
+
 # ===================== Phase B: train student =====================
 def train_student(data, device, epochs, ch, lambda_kd, lr, train_idx):
     model = TinyUNet(ch).to(device)
@@ -251,22 +288,30 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--thresh", type=float, default=0.5)
     ap.add_argument("--min_area", type=int, default=5)
-    ap.add_argument("--cache", default=f"{REPO}/work/teacher_targets_nuinsseg.pkl")
+    ap.add_argument("--dataset", choices=["nuinsseg", "pannuke"], default="nuinsseg")
+    ap.add_argument("--pannuke_root", default=f"{REPO}/data/pannuke")
+    ap.add_argument("--pannuke_folds", default="1,2,3")
+    ap.add_argument("--cache", default=None)
     ap.add_argument("--out", default=f"{REPO}/work/student_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    os.makedirs(os.path.dirname(args.cache) or ".", exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"device={device}")
+    print(f"device={device} dataset={args.dataset}")
     np.random.seed(args.seed); torch.manual_seed(args.seed)
 
-    root = find_root()
-    samples = build_index(root)  # CÙNG thứ tự với teacher pkl
-    print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
-
-    data = build_teacher_targets(samples, device, args.cache)
+    if args.dataset == "pannuke":
+        cache = args.cache or f"{REPO}/work/teacher_targets_pannuke.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
+        folds = [int(x) for x in args.pannuke_folds.split(",")]
+        data = build_pannuke_targets(args.pannuke_root, folds, device, cache)
+    else:
+        cache = args.cache or f"{REPO}/work/teacher_targets_nuinsseg.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
+        samples = build_index(find_root())
+        print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
+        data = build_teacher_targets(samples, device, cache)
 
     # NOTE: student predict trên TOÀN BỘ ảnh (để harness split cal/test y như teacher pkl).
     # train_idx = toàn bộ (distillation dùng teacher signal, không cần giữ test riêng ở đây;
