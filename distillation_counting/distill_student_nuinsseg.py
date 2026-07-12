@@ -316,6 +316,9 @@ def main():
     ap.add_argument("--kfold", type=int, default=None,
                     help="NuInsSeg: cross-fitting K-fold (leak-free). Train K-1 fold -> predict fold held-out, "
                          "ghép mọi ảnh (mỗi ảnh dự đoán bởi model KHÔNG train nó). Vd 5.")
+    ap.add_argument("--exclude_tissue", default=None,
+                    help="PanNuke: loại tissue chứa chuỗi này (case-insensitive, ','). Vd 'colon' "
+                         "(Lizard-overlap leak của teacher) — loại y hệt Paper 1.")
     ap.add_argument("--cache", default=None)
     ap.add_argument("--out", default=f"{REPO}/work/student_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
@@ -338,6 +341,13 @@ def main():
         samples = build_index(find_root())
         print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
         data = build_teacher_targets(samples, device, cache)
+
+    # --- loại tissue (vd colon: Lizard-overlap leak của teacher, y hệt Paper 1) ---
+    if args.exclude_tissue:
+        ex = [t.strip().lower() for t in args.exclude_tissue.split(",") if t.strip()]
+        before = len(data)
+        data = [d for d in data if not any(e in str(d["organ"]).lower() for e in ex)]
+        print(f"[EXCLUDE] bỏ tissue chứa {ex}: {before} -> {len(data)} ảnh (loại {before-len(data)})")
 
     # --- CROSS-FITTING K-fold (leak-free cho NuInsSeg: mỗi ảnh dự đoán bởi model không train nó) ---
     if args.kfold and args.kfold > 1:
