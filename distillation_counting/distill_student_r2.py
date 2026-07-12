@@ -252,9 +252,10 @@ def main():
 
     tag = "gt" if args.use_gt_density else "teacher"
     if args.dataset == "pannuke":
-        cache = args.cache or f"{REPO}/work/{tag}_density_pannuke.pkl"
-        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
         folds = [int(x) for x in args.pannuke_folds.split(",")]
+        fstr = "".join(str(x) for x in sorted(folds))   # cache theo tập fold -> không đụng cache cũ
+        cache = args.cache or f"{REPO}/work/{tag}_density_pannuke_f{fstr}.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
         data = build_pannuke_density(args.pannuke_root, folds, device, cache,
                                      use_gt=args.use_gt_density)
     else:

@@ -304,9 +304,10 @@ def main():
     np.random.seed(args.seed); torch.manual_seed(args.seed)
 
     if args.dataset == "pannuke":
-        cache = args.cache or f"{REPO}/work/teacher_targets_pannuke.pkl"
-        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
         folds = [int(x) for x in args.pannuke_folds.split(",")]
+        fstr = "".join(str(x) for x in sorted(folds))   # cache theo tập fold -> không đụng cache cũ
+        cache = args.cache or f"{REPO}/work/teacher_targets_pannuke_f{fstr}.pkl"
+        os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
         data = build_pannuke_targets(args.pannuke_root, folds, device, cache)
     else:
         cache = args.cache or f"{REPO}/work/teacher_targets_nuinsseg.pkl"
