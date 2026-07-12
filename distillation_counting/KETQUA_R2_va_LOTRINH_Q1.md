@@ -176,7 +176,33 @@ baseline recent lấy từ 2 dòng lân cận, đều CÓ CODE. **Bước 0 mỗ
 2. Nhóm accuracy nặng: verify + chạy NuLite, CellViT++ (cần env/weight riêng trên vast — rủi ro môi trường, làm sau).
 Chạy so sánh trên **PanNuke leak-free no-colon** (đã có) để đối chiếu trực tiếp bảng mục 8.
 
-## 7. ▶ TIẾP THEO (resume sau khi ngủ) — PanNuke dataset 2
+## 10. ▶ RESUME (2026-07-13) — bước tiếp theo: BASELINES RECENT
+
+**Trạng thái: phần METHOD XONG** (mục 8 + 8b). Cả 2 dataset leak-free, σ Poisson-anchored, R2 thắng KD
+cả 3 trục p≤1.9e−6. File pkl đã có trong `/workspace/sam3_research/work/`:
+`student_r2_pannuke_f{1,2,3}_nocolon_poisson.pkl`, `student_kd_pannuke_f{1,2,3}_nocolon.pkl`,
+`student_r2_nuinsseg_cv5_poisson.pkl`, `student_kd_nuinsseg_cv5.pkl`, + teacher caches.
+
+**Vast khi STOP:** giữ `/workspace/sam3_research/work/` (mọi pkl + cache teacher) + data PanNuke + counts.npy.
+`/workspace/penv` có thể mất → rebuild `bash kaggle/vast/setup_pathosam_vast.sh` + `micromamba install -p /workspace/penv "micro_sam>=1.1" vigra nifty` (~5'). **NHƯNG** baselines UQ dưới đây KHÔNG cần PathoSAM
+(chạy trên student/pkl đã có) → có thể khỏi rebuild env nếu chỉ làm bước 1.
+
+### Bước 1 (LÀM TRƯỚC — rẻ, khả thi ngay): UQ baselines trên CÙNG student nhẹ
+So trục reliability (Winkler/coverage), fair compute. CHƯA code — cần viết `baselines_uq.py`:
+- **MC-Dropout** (Gal 2016): thêm dropout vào DensitySigmaUNet, T=30 forward lúc test → μ=mean, σ=std của count.
+- **Deep Ensembles** (Lakshminarayanan 2017): train M=5 student khác seed (cùng split), μ,σ = mean/std ensemble.
+- **CQR** (Romano 2019, github yromano/cqr / MAPIE): student 2 quantile head (pinball loss) → conformal hoá.
+- **CHDQR** (2411.01266, 2024): cải tiến CQR.
+- Chấm bằng ĐÚNG `eval_r2_grouped.py` (cùng conformal/Winkler) để so trực tiếp bảng mục 8.
+- Ablation `--sigma_mode raw` cũng nên vào bảng (chứng minh Poisson anchor > raw).
+
+### Bước 2 (SAU, nặng, cần env riêng): accuracy baselines
+- **NuLite** (2024, arxiv 2408.01797) + **CellViT++** (2025, github TIO-IKIM/CellViT): verify repo+weight →
+  chạy trên PanNuke fold test → count MAE. Đối chiếu "student nhẹ MAE ngang + có UQ mà chúng không có".
+
+### Bước 3: PanNuke K>1 (mở rộng, tuỳ chọn) — mục 7.3. Rồi viết paper.
+
+## 7. ▶ (CŨ, đã xong) resume PanNuke dataset 2
 
 ### 7.0 Trạng thái vast khi tạm ngừng
 - **STOP (không DESTROY) instance** để giữ: `/workspace/penv` (env PathoSAM), data PanNuke đã tải,
