@@ -46,12 +46,31 @@ class PanNukeFold:
         ]
         self.types_path = next((p for p in type_candidates if p.exists()), None)
 
-        for p in (self.images_path, self.masks_path):
-            if not p.exists():
-                raise FileNotFoundError(f"Missing: {p}")
+        # counts.npy precompute (cạnh types.npy) -> cho phép XOÁ masks.npy để tiết kiệm đĩa.
+        count_candidates = [
+            base / "images" / f / "counts.npy",
+            base / "counts.npy",
+            self.root / f / "counts.npy",
+        ]
+        self.counts_path = next((p for p in count_candidates if p.exists()), None)
+
+        if not self.images_path.exists():
+            raise FileNotFoundError(f"Missing: {self.images_path}")
 
         self.images = np.load(self.images_path, mmap_mode="r")
-        self.masks  = np.load(self.masks_path,  mmap_mode="r")
+        # masks.npy TUỲ CHỌN: nếu vắng, phải có counts.npy precompute (chỉ cần đếm, không cần instance).
+        if self.masks_path.exists():
+            self.masks = np.load(self.masks_path, mmap_mode="r")
+            self.counts_arr = None
+        else:
+            self.masks = None
+            if self.counts_path is None:
+                raise FileNotFoundError(
+                    f"masks.npy vắng ({self.masks_path}) VÀ không có counts.npy precompute. "
+                    f"Chạy precompute_pannuke_counts.py trước khi xoá masks.npy.")
+            self.counts_arr = np.load(self.counts_path)   # (N,5)
+            print(f"[Fold {fold}] masks.npy vắng -> dùng counts.npy ({self.counts_path.name}), "
+                  f"masks=None (đủ cho R2/KD count-only).")
         if self.types_path is not None:
             self.tissue_types = np.load(self.types_path, allow_pickle=True)
         else:
@@ -62,21 +81,30 @@ class PanNukeFold:
                 print(f"  - {c}")
             print(f"[Fold {fold}] Dùng placeholder 'unknown' cho {n} ảnh.")
 
-        assert self.images.shape[0] == self.masks.shape[0] == self.tissue_types.shape[0]
+        assert self.images.shape[0] == self.tissue_types.shape[0]
         assert self.images.shape[1:] == (256, 256, 3), f"unexpected: {self.images.shape}"
-        assert self.masks.shape[1:]  == (256, 256, 6), f"unexpected: {self.masks.shape}"
+        if self.masks is not None:
+            assert self.images.shape[0] == self.masks.shape[0]
+            assert self.masks.shape[1:] == (256, 256, 6), f"unexpected: {self.masks.shape}"
+        else:
+            assert self.images.shape[0] == self.counts_arr.shape[0], \
+                f"counts.npy N={self.counts_arr.shape[0]} != images N={self.images.shape[0]}"
 
     def __len__(self) -> int:
         return self.images.shape[0]
 
     def __getitem__(self, idx: int) -> dict:
         img = _to_uint8(np.array(self.images[idx]))
-        m_all = np.array(self.masks[idx], dtype=np.int32)
-        masks_per_type = m_all[..., :5].transpose(2, 0, 1)
-        counts = np.array(
-            [int(np.unique(masks_per_type[k]).size - 1) for k in range(5)],
-            dtype=np.int32,
-        )
+        if self.masks is not None:
+            m_all = np.array(self.masks[idx], dtype=np.int32)
+            masks_per_type = m_all[..., :5].transpose(2, 0, 1)
+            counts = np.array(
+                [int(np.unique(masks_per_type[k]).size - 1) for k in range(5)],
+                dtype=np.int32,
+            )
+        else:
+            masks_per_type = None                        # masks.npy đã xoá; chỉ có count
+            counts = np.asarray(self.counts_arr[idx], dtype=np.int32)
         return {
             "image": img,
             "masks": masks_per_type,

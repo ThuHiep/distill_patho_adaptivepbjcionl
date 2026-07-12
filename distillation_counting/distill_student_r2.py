@@ -98,6 +98,9 @@ def build_pannuke_density(root, folds, device, cache, use_gt=False):
             gt = int(s["counts"].sum())               # tổng nhân 5 lớp
             dens = np.zeros((IMG_SIZE, IMG_SIZE), np.float32)
             if use_gt:
+                if s["masks"] is None:
+                    raise RuntimeError("use_gt_density cần instance masks nhưng masks.npy đã xoá. "
+                                       "Giữ masks.npy nếu muốn baseline GT-density trên PanNuke.")
                 for k in range(5):
                     lab = s["masks"][k]
                     for iid in np.unique(lab):

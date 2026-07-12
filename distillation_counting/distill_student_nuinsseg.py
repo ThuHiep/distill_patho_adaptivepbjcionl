@@ -209,9 +209,13 @@ def build_pannuke_targets(root, folds, device, cache):
             fg_r = F.interpolate(fg_t, size=(IMG_SIZE, IMG_SIZE), mode="bilinear",
                                  align_corners=False)[0, 0].numpy()
             fg_r = np.clip(fg_r, 0.0, 1.0)
-            gtbin = (s["masks"].sum(0) > 0).astype(np.float32)   # union 5 kênh
-            gtbin_r = np.asarray(Image.fromarray((gtbin * 255).astype(np.uint8))
-                                 .resize((IMG_SIZE, IMG_SIZE), Image.NEAREST)) / 255.0
+            if s["masks"] is not None:
+                gtbin = (s["masks"].sum(0) > 0).astype(np.float32)   # union 5 kênh
+                gtbin_r = np.asarray(Image.fromarray((gtbin * 255).astype(np.uint8))
+                                     .resize((IMG_SIZE, IMG_SIZE), Image.NEAREST)) / 255.0
+            else:
+                # masks.npy đã xoá; gtbin chỉ dùng khi lambda_kd<1 (supervised term). KD thuần bỏ qua.
+                gtbin_r = np.zeros((IMG_SIZE, IMG_SIZE), np.float32)
             data.append({"img": img_r.astype(np.uint8), "fg": fg_r.astype(np.float32),
                          "gtbin": gtbin_r.astype(np.float32), "gt": float(int(s["counts"].sum())),
                          "organ": s["tissue"], "fold": int(fold)})
