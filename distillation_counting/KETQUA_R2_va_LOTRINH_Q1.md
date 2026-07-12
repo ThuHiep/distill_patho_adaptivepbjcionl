@@ -98,33 +98,39 @@ Nhiều cluster → worst-org ↑, đổi lấy Winkler ↑ nhẹ + marginal con
 6. ⬜ **Baseline mạnh hơn**: supervised-GT đã có (mục 3c); thêm so method nhẹ đã công bố nếu được.
 7. ⬜ **SỬA LEAK NuInsSeg** (mục 2/3b hiện train-all/predict-all) — bắt buộc trước submit. Kế hoạch: cross-fitting 5-fold (train 4/5 → predict 1/5 held-out, ghép 665 dự đoán leak-free), teacher cache NuInsSeg đã có.
 
-## 8. PanNuke — kết quả LEAK-FREE 3-fold CV (2026-07-12) ★ con số chính thức dataset 2
+## 8. PanNuke — kết quả LEAK-FREE 3-fold CV, NO-COLON (2026-07-13) ★ con số CHÍNH THỨC dataset 2
 
 **Protocol:** PanNuke như K=1 (tổng nhân/ảnh). Train 2 fold → **test fold còn lại (chưa hề thấy)** →
-conformal cal/test split TRONG fold test. `--test_fold {1,2,3}`. seeds=20, α=0.1, target 0.90, n_clusters=5.
-`student_ch=32` (~1.9M), `--detach_mu`. masks.npy đã xoá (23G) — dùng counts.npy precompute (chỉ cần đếm).
+conformal cal/test split TRONG fold test. `--test_fold {1,2,3} --exclude_tissue colon`.
+seeds=20, α=0.1, target 0.90, n_clusters=5. `student_ch=32` (~1.9M), `--detach_mu`.
+masks.npy đã xoá (23G) — dùng counts.npy precompute. **Loại colon** (Lizard-overlap teacher leak, y hệt
+Paper 1): 7901 → 6461 ảnh (loại 1440; fold3 test = 2228 khớp Paper 1). Xem [[pannuke-colon-exclusion]].
 
-| scheme | marg.cov | **Winkler ↓** | MAE | **worst-tissue ↑** | #under (/56) |
+| scheme | marg.cov | **Winkler ↓** | **MAE ↓** | **worst-tissue ↑** | #under (/53) |
 |---|---|---|---|---|---|
-| KD-global (baseline) | 0.904 | **30.9 ± 1.3** | 4.30 | 0.776 ± 0.015 | 9 |
-| R2-global | 0.896 | 24.8 | 4.16 | 0.734 | 6 |
-| R2-cluster | 0.903 | **23.9 ± 1.2** | 4.16 | 0.824 ± 0.025 | 4 |
-| **R2-mondrian** | 0.918 | 24.4 ± 1.3 | 4.16 | **0.900 ± 0.006** | **0** |
+| KD-global (baseline) | 0.903 | 23.7 ± 1.5 | 3.94 ± 0.13 | 0.739 ± 0.045 | 8 |
+| R2-global | 0.904 | 20.2 | 3.52 | 0.775 | 8 |
+| R2-cluster | 0.907 | **20.2 ± 2.1** | 3.52 | 0.852 ± 0.015 | 1 |
+| **R2-mondrian** | 0.924 | 20.8 ± 2.2 | **3.52 ± 0.31** | **0.905 ± 0.002** | **0** |
 
-Per-fold (Winkler R2-cluster / KD ; MAE R2 / KD ; worst-org R2-mondrian):
-- fold3 test: 24.26/31.69 ; 3.96/4.39 ; 0.908 (0/19)
-- fold1 test: 25.19/29.08 ; 4.35/4.18 ; 0.896 (0/19)
-- fold2 test: 22.35/32.01 ; 4.18/4.32 ; 0.895 (0/18)
-- Winkler & MAE: paired-Wilcoxon R2 vs KD p ≤ 1e−4 ở CẢ 3 fold.
+Per-fold (Winkler R2-cluster / KD ; MAE R2 / KD ; worst-org R2-mondrian, #under):
+- fold3 test (2228 img): 23.01/25.84 ; 3.94/4.06 ; 0.903 (0/18)
+- fold1 test: 17.93/22.23 ; 3.19/3.76 ; 0.904 (0/18)
+- fold2 test: 19.58/23.03 ; 3.44/4.00 ; 0.907 (0/17)
+- Winkler & MAE: paired-Wilcoxon R2 vs KD **p=1.9e−6 ở CẢ 3 fold**.
 
-**Kết luận (trung thực):**
-- **Winkler −21% (p<1e−4, mọi fold/scheme)** = đóng góp lõi, generalize. Không phụ thuộc scheme nhóm.
-- **worst-tissue R2-mondrian 0.900 chạm target, 0/56 mô undercover** vs KD 0.776 / 9 mô. Conditional coverage gần hoàn hảo & ổn định.
-- **MAE HÒA** (4.16 vs 4.30; R2 thắng f2,f3, KD thắng f1). KHÔNG claim thắng accuracy điểm.
-- Story adaptive: NuInsSeg ~10 ảnh/organ → **cluster**; PanNuke ~143 ảnh/mô → **Mondrian** đủ mẫu, đạt per-tissue coverage. Độ mịn nhóm chọn theo n_cal (quy tắc a priori, không cherry-pick).
-- KD làm khoảng hẹp (width ~16) nhưng miss nhiều (9 mô under) → Winkler nổ; R2 nới đúng chỗ bằng σ → phủ đủ.
+**Kết luận (trung thực) — R2 thắng CẢ 3 TRỤC, sạch, mọi fold:**
+- **MAE: R2 3.52 vs KD 3.94 (−11%, p<1e−5, thắng cả 3 fold).** Bản có-colon MAE hòa; bỏ colon (leak) xong R2 thắng nhất quán → colon từng che lợi thế accuracy thật.
+- **Winkler: R2 20.2 vs KD 23.7 (−14%, p<1e−5 mọi fold).** Thấp hơn −21% bản có-colon vì đã bỏ phần KD-fail-trên-colon-leak → đây là con số KHÔNG cãi được.
+- **worst-tissue R2-mondrian 0.905 ± 0.002, 0/53 mô under** vs KD 0.739 / 8 mô. Chạm target 0.90, cực ổn định.
+- Story adaptive grouping: NuInsSeg ~10 ảnh/organ → **cluster**; PanNuke ~143 ảnh/mô → **Mondrian** đủ mẫu đạt per-tissue coverage. Độ mịn nhóm chọn theo n_cal (a priori, không cherry-pick).
 
-**Định vị bán:** cùng MAE + cùng student nhẹ, R2 cho interval calibrated hơn hẳn (Winkler −21%, conditional coverage chạm target). "Energy-efficient + trustworthy counting."
+**Định vị bán (Q1, bảo vệ tuyệt đối):** cùng student nhẹ ~1.9M, distillation của chúng tôi thắng KD trên
+**cả 3 trục** — accuracy (MAE −11%), interval quality (Winkler −14%), conditional coverage (worst-tissue
+0.905 vs 0.739; 0 vs 8 mô under) — p<1e−5, trên tissue teacher CHƯA thấy. "Energy-efficient + trustworthy."
+
+*(Bản CÓ-colon (superseded, không dùng cho paper): KD Winkler bị colon-leak thổi lên 30.9, worst-tissue
+R2-mondrian 0.900/0/56, MAE hòa 4.16/4.30. Loại colon cho con số sạch + mạnh hơn.)*
 
 ## 7. ▶ TIẾP THEO (resume sau khi ngủ) — PanNuke dataset 2
 
