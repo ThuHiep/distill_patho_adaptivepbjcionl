@@ -94,8 +94,37 @@ Nhiều cluster → worst-org ↑, đổi lấy Winkler ↑ nhẹ + marginal con
 2. ✅ **Ablation**: density→+count→+NLL→±cluster. NLL-coupling làm hỏng MAE → sửa bằng `--detach_mu`.
 3. ✅ **Đẩy worst-org**: n_clusters sweep → chốt 5 (worst-org 0.773, trần thực tế ~0.78).
 4. ✅ **Compression sweep** (ch=16/32/64): ch=32 sweet spot, ch=16 (~0.5M) vẫn thắng KD.
-5. ⏳ **Dataset 2 (PanNuke)** — ĐANG LÀM. Code đã xong (mục 7). Chạy 3a (K=1) rồi 3b (K>1).
+5. ✅ **Dataset 2 (PanNuke) — LEAK-FREE, 3-fold CV** (2026-07-12). Xem mục 8. R2 thắng KD ĐẠT cả 3 fold.
 6. ⬜ **Baseline mạnh hơn**: supervised-GT đã có (mục 3c); thêm so method nhẹ đã công bố nếu được.
+7. ⬜ **SỬA LEAK NuInsSeg** (mục 2/3b hiện train-all/predict-all) — bắt buộc trước submit. Kế hoạch: cross-fitting 5-fold (train 4/5 → predict 1/5 held-out, ghép 665 dự đoán leak-free), teacher cache NuInsSeg đã có.
+
+## 8. PanNuke — kết quả LEAK-FREE 3-fold CV (2026-07-12) ★ con số chính thức dataset 2
+
+**Protocol:** PanNuke như K=1 (tổng nhân/ảnh). Train 2 fold → **test fold còn lại (chưa hề thấy)** →
+conformal cal/test split TRONG fold test. `--test_fold {1,2,3}`. seeds=20, α=0.1, target 0.90, n_clusters=5.
+`student_ch=32` (~1.9M), `--detach_mu`. masks.npy đã xoá (23G) — dùng counts.npy precompute (chỉ cần đếm).
+
+| scheme | marg.cov | **Winkler ↓** | MAE | **worst-tissue ↑** | #under (/56) |
+|---|---|---|---|---|---|
+| KD-global (baseline) | 0.904 | **30.9 ± 1.3** | 4.30 | 0.776 ± 0.015 | 9 |
+| R2-global | 0.896 | 24.8 | 4.16 | 0.734 | 6 |
+| R2-cluster | 0.903 | **23.9 ± 1.2** | 4.16 | 0.824 ± 0.025 | 4 |
+| **R2-mondrian** | 0.918 | 24.4 ± 1.3 | 4.16 | **0.900 ± 0.006** | **0** |
+
+Per-fold (Winkler R2-cluster / KD ; MAE R2 / KD ; worst-org R2-mondrian):
+- fold3 test: 24.26/31.69 ; 3.96/4.39 ; 0.908 (0/19)
+- fold1 test: 25.19/29.08 ; 4.35/4.18 ; 0.896 (0/19)
+- fold2 test: 22.35/32.01 ; 4.18/4.32 ; 0.895 (0/18)
+- Winkler & MAE: paired-Wilcoxon R2 vs KD p ≤ 1e−4 ở CẢ 3 fold.
+
+**Kết luận (trung thực):**
+- **Winkler −21% (p<1e−4, mọi fold/scheme)** = đóng góp lõi, generalize. Không phụ thuộc scheme nhóm.
+- **worst-tissue R2-mondrian 0.900 chạm target, 0/56 mô undercover** vs KD 0.776 / 9 mô. Conditional coverage gần hoàn hảo & ổn định.
+- **MAE HÒA** (4.16 vs 4.30; R2 thắng f2,f3, KD thắng f1). KHÔNG claim thắng accuracy điểm.
+- Story adaptive: NuInsSeg ~10 ảnh/organ → **cluster**; PanNuke ~143 ảnh/mô → **Mondrian** đủ mẫu, đạt per-tissue coverage. Độ mịn nhóm chọn theo n_cal (quy tắc a priori, không cherry-pick).
+- KD làm khoảng hẹp (width ~16) nhưng miss nhiều (9 mô under) → Winkler nổ; R2 nới đúng chỗ bằng σ → phủ đủ.
+
+**Định vị bán:** cùng MAE + cùng student nhẹ, R2 cho interval calibrated hơn hẳn (Winkler −21%, conditional coverage chạm target). "Energy-efficient + trustworthy counting."
 
 ## 7. ▶ TIẾP THEO (resume sau khi ngủ) — PanNuke dataset 2
 
