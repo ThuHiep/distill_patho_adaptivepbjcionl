@@ -45,9 +45,16 @@ from r2_losses import r2_loss, count_from_density  # noqa: E402
 # ===================== Student: density + log_sigma =====================
 class DensitySigmaUNet(nn.Module):
     """TinyUNet backbone -> (density_map>=0, log_sigma scalar/ảnh).
-    ch=32 => ~1.9M params (như TinyUNet) + head log_sigma nhỏ."""
-    def __init__(self, ch=32):
+    ch=32 => ~1.9M params (như TinyUNet) + head log_sigma nhỏ.
+
+    sigma_mode:
+      'poisson' (mặc định) — σ = √(max(μ,1)) · exp(log_s), log_s∈[-2,2] học được.
+          Anchor Poisson (count data ~ equidispersion) cho count-scaling & chặn runaway;
+          head chỉ học hệ số dispersion. Sửa σ hỏng trên dải count rộng (NuInsSeg), giữ PanNuke.
+      'raw' — σ = exp(log_s) (bản cũ, head học σ từ đầu). Giữ để ABLATION."""
+    def __init__(self, ch=32, sigma_mode="poisson"):
         super().__init__()
+        self.sigma_mode = sigma_mode
         self.d1 = DoubleConv(3, ch);          self.p1 = nn.MaxPool2d(2)
         self.d2 = DoubleConv(ch, ch * 2);     self.p2 = nn.MaxPool2d(2)
         self.d3 = DoubleConv(ch * 2, ch * 4); self.p3 = nn.MaxPool2d(2)
@@ -56,12 +63,12 @@ class DensitySigmaUNet(nn.Module):
         self.u2 = nn.ConvTranspose2d(ch * 4, ch * 2, 2, stride=2); self.c2 = DoubleConv(ch * 4, ch * 2)
         self.u1 = nn.ConvTranspose2d(ch * 2, ch, 2, stride=2);     self.c1 = DoubleConv(ch * 2, ch)
         self.dens = nn.Conv2d(ch, 1, 1)            # -> softplus = density >=0
-        # log_sigma head: pool bottleneck (ch*8) -> MLP -> scalar
+        # head log_s: pool bottleneck (ch*8) -> MLP -> scalar (dispersion/ảnh)
         self.sig = nn.Sequential(
             nn.AdaptiveAvgPool2d(1), nn.Flatten(),
             nn.Linear(ch * 8, ch), nn.ReLU(inplace=True), nn.Linear(ch, 1))
-        # init log_sigma bias ~ log(15): count NuInsSeg ~ chục -> sigma khởi động hợp lý
-        nn.init.constant_(self.sig[-1].bias, 2.7)
+        # bias init: poisson -> log_s≈0 (σ≈√μ); raw -> log(15)≈2.7 (σ~chục)
+        nn.init.constant_(self.sig[-1].bias, 0.0 if sigma_mode == "poisson" else 2.7)
 
     def forward(self, x):
         x1 = self.d1(x); x2 = self.d2(self.p1(x1)); x3 = self.d3(self.p2(x2))
@@ -70,7 +77,12 @@ class DensitySigmaUNet(nn.Module):
         y = self.c2(torch.cat([self.u2(y), x2], 1))
         y = self.c1(torch.cat([self.u1(y), x1], 1))
         density = F.relu(self.dens(y))             # (B,1,H,W) >=0 (nền=0 chính xác, như CSRNet)
-        log_sigma = self.sig(xb).squeeze(1)        # (B,)
+        log_s = self.sig(xb).squeeze(1)            # (B,) dispersion thô
+        if self.sigma_mode == "poisson":
+            mu = density.sum(dim=(1, 2, 3)).detach()          # count anchor (DETACH: σ mượn độ lớn, không kéo μ)
+            log_sigma = 0.5 * torch.log(torch.clamp(mu, min=1.0)) + torch.clamp(log_s, -2.0, 2.0)
+        else:  # 'raw' (cũ)
+            log_sigma = log_s
         return density, log_sigma
 
 
@@ -178,10 +190,10 @@ def build_teacher_density(samples, device, cache, use_gt=False):
 
 # ===================== Phase B: train =====================
 def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, beta, bs,
-          detach_mu=False):
-    model = DensitySigmaUNet(ch).to(device)
+          detach_mu=False, sigma_mode="poisson"):
+    model = DensitySigmaUNet(ch, sigma_mode=sigma_mode).to(device)
     print(f"[B] DensitySigmaUNet ch={ch} params={sum(p.numel() for p in model.parameters())/1e6:.3f}M "
-          f"w=(dens {w_density}, count {w_count}, nll {w_nll}) beta={beta} detach_mu={detach_mu}")
+          f"w=(dens {w_density}, count {w_count}, nll {w_nll}) beta={beta} detach_mu={detach_mu} sigma_mode={sigma_mode}")
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
     for ep in range(epochs):
@@ -232,6 +244,8 @@ def main():
     ap.add_argument("--w_count", type=float, default=0.01, help="L_count là |mu-GT| (thang chục) -> trọng số nhỏ")
     ap.add_argument("--w_nll", type=float, default=0.01, help="L_nll thang lớn -> trọng số nhỏ để cân với density MSE")
     ap.add_argument("--beta", type=float, default=0.5, help="beta-NLL (Seitzer 2022)")
+    ap.add_argument("--sigma_mode", choices=["poisson", "raw"], default="poisson",
+                    help="poisson: σ=√(max(μ,1))·exp(log_s) (count-anchored, mặc định); raw: σ=exp(log_s) (cũ, ablation)")
     ap.add_argument("--detach_mu", action="store_true",
                     help="tách mu khỏi NLL (NLL chỉ dạy sigma) — sửa NLL-coupling làm hỏng MAE")
     ap.add_argument("--use_gt_density", action="store_true",
@@ -296,7 +310,8 @@ def main():
             te = [i for i in range(N) if fold_of[i] == f]
             print(f"[CV] fold {f+1}/{args.kfold}: train {len(tr)} | held-out predict {len(te)}")
             m = train(data, device, args.epochs, args.student_ch, args.lr, tr,
-                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
+                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs,
+                      args.detach_mu, args.sigma_mode)
             of = predict_r2(m, [data[i] for i in te], device)
             for k, i in enumerate(te):
                 all_p[i] = of["preds"][k]; all_g[i] = of["gts"][k]; all_o[i] = of["organs"][k]
@@ -316,7 +331,8 @@ def main():
             test_data = data
             print("[SPLIT] WARN: train+predict TOÀN BỘ (LEAK). Dùng --kfold (NuInsSeg) / --test_fold (PanNuke).")
         model = train(data, device, args.epochs, args.student_ch, args.lr, train_idx,
-                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
+                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs,
+                      args.detach_mu, args.sigma_mode)
         out = predict_r2(model, test_data, device)
     pickle.dump(out, open(args.out, "wb"))
     mu = np.array([p["mu"] for p in out["preds"]])
