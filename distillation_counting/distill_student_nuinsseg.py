@@ -283,6 +283,22 @@ def student_predict(model, data, device, thresh, min_area):
     return {"preds": preds, "gts": gts, "organs": organs}
 
 
+def assign_kfold(organs, k, seed):
+    """Gán fold [0..k) cho mỗi ảnh, PHÂN TẦNG theo organ (mỗi organ trải đều k fold).
+    -> mỗi fold có phân bố organ ~giống nhau, tốt cho conditional coverage. Trả np.int array (N,)."""
+    from collections import defaultdict
+    rng = np.random.RandomState(seed)
+    fold_of = np.zeros(len(organs), dtype=int)
+    by_org = defaultdict(list)
+    for i, o in enumerate(organs):
+        by_org[o].append(i)
+    for t, (o, idxs) in enumerate(sorted(by_org.items())):
+        idxs = list(idxs); rng.shuffle(idxs)
+        for j, i in enumerate(idxs):
+            fold_of[i] = (j + t) % k   # xoay start theo organ -> phần dư trải đều, fold ~cân
+    return fold_of
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lambda_kd", type=float, default=1.0,
@@ -297,6 +313,9 @@ def main():
     ap.add_argument("--pannuke_folds", default="1,2,3")
     ap.add_argument("--test_fold", type=int, default=None,
                     help="PanNuke: HELD-OUT fold để test (leak-free). Train fold còn lại, predict CHỈ test_fold.")
+    ap.add_argument("--kfold", type=int, default=None,
+                    help="NuInsSeg: cross-fitting K-fold (leak-free). Train K-1 fold -> predict fold held-out, "
+                         "ghép mọi ảnh (mỗi ảnh dự đoán bởi model KHÔNG train nó). Vd 5.")
     ap.add_argument("--cache", default=None)
     ap.add_argument("--out", default=f"{REPO}/work/student_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
@@ -320,23 +339,37 @@ def main():
         print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
         data = build_teacher_targets(samples, device, cache)
 
-    # --- tách train/test theo fold (leak-free, đúng protocol PanNuke; PHẢI khớp R2 để so công bằng) ---
-    if args.dataset == "pannuke" and args.test_fold is not None:
-        train_idx = [i for i, d in enumerate(data) if d["fold"] != args.test_fold]
-        test_data = [d for d in data if d["fold"] == args.test_fold]
-        assert train_idx and test_data, f"test_fold={args.test_fold} không tách được"
-        n_tr_folds = sorted({d["fold"] for d in data if d["fold"] != args.test_fold})
-        print(f"[SPLIT] train folds={n_tr_folds} ({len(train_idx)} imgs) | "
-              f"TEST fold={args.test_fold} ({len(test_data)} imgs) — leak-free")
+    # --- CROSS-FITTING K-fold (leak-free cho NuInsSeg: mỗi ảnh dự đoán bởi model không train nó) ---
+    if args.kfold and args.kfold > 1:
+        N = len(data)
+        fold_of = assign_kfold([d["organ"] for d in data], args.kfold, args.seed)
+        all_p = [None] * N; all_g = [None] * N; all_o = [None] * N
+        for f in range(args.kfold):
+            tr = [i for i in range(N) if fold_of[i] != f]
+            te = [i for i in range(N) if fold_of[i] == f]
+            print(f"[CV] fold {f+1}/{args.kfold}: train {len(tr)} | held-out predict {len(te)}")
+            m = train_student(data, device, args.epochs, args.student_ch, args.lambda_kd, args.lr, tr)
+            of = student_predict(m, [data[i] for i in te], device, args.thresh, args.min_area)
+            for k, i in enumerate(te):
+                all_p[i] = of["preds"][k]; all_g[i] = of["gts"][k]; all_o[i] = of["organs"][k]
+        out = {"preds": all_p, "gts": all_g, "organs": all_o}
+        print(f"[CV] ghép {N} dự đoán leak-free ({args.kfold}-fold cross-fitting)")
     else:
-        train_idx = list(range(len(data)))
-        test_data = data
-        if args.dataset == "pannuke":
-            print("[SPLIT] WARN: không có --test_fold -> train+predict TOÀN BỘ (LEAK, chỉ debug)")
-    model = train_student(data, device, args.epochs, args.student_ch,
-                          args.lambda_kd, args.lr, train_idx)
-
-    out = student_predict(model, test_data, device, args.thresh, args.min_area)
+        # --- tách train/test theo fold (PanNuke) hoặc train-all (debug) ---
+        if args.dataset == "pannuke" and args.test_fold is not None:
+            train_idx = [i for i, d in enumerate(data) if d["fold"] != args.test_fold]
+            test_data = [d for d in data if d["fold"] == args.test_fold]
+            assert train_idx and test_data, f"test_fold={args.test_fold} không tách được"
+            n_tr_folds = sorted({d["fold"] for d in data if d["fold"] != args.test_fold})
+            print(f"[SPLIT] train folds={n_tr_folds} ({len(train_idx)} imgs) | "
+                  f"TEST fold={args.test_fold} ({len(test_data)} imgs) — leak-free")
+        else:
+            train_idx = list(range(len(data)))
+            test_data = data
+            print("[SPLIT] WARN: train+predict TOÀN BỘ (LEAK). Dùng --kfold (NuInsSeg) / --test_fold (PanNuke).")
+        model = train_student(data, device, args.epochs, args.student_ch,
+                              args.lambda_kd, args.lr, train_idx)
+        out = student_predict(model, test_data, device, args.thresh, args.min_area)
     pickle.dump(out, open(args.out, "wb"))
     est = np.array([p["scores"].sum() for p in out["preds"]])
     gtv = np.array([g[0] for g in out["gts"]])

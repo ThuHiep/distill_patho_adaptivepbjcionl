@@ -37,7 +37,7 @@ for p in (f"{REPO}/kaggle/vast", f"{REPO}/kaggle/lib", REPO, os.path.dirname(__f
         sys.path.insert(0, p)
 
 from distill_student_nuinsseg import (  # noqa: E402
-    build_index, find_root, DoubleConv, IMG_SIZE, _load_mask,
+    build_index, find_root, DoubleConv, IMG_SIZE, _load_mask, assign_kfold,
 )
 from r2_losses import r2_loss, count_from_density  # noqa: E402
 
@@ -243,6 +243,9 @@ def main():
     ap.add_argument("--test_fold", type=int, default=None,
                     help="PanNuke: HELD-OUT fold để test (leak-free). Train trên các fold còn lại, "
                          "predict CHỈ trên test_fold. Bỏ trống -> train+predict toàn bộ (chỉ để debug).")
+    ap.add_argument("--kfold", type=int, default=None,
+                    help="NuInsSeg: cross-fitting K-fold (leak-free). Train K-1 fold -> predict fold held-out, "
+                         "ghép mọi ảnh (mỗi ảnh dự đoán bởi model KHÔNG train nó). Vd 5.")
     ap.add_argument("--cache", default=None, help="mặc định tự đặt theo dataset")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
@@ -267,22 +270,38 @@ def main():
         samples = build_index(find_root())
         print(f"indexed {len(samples)} pairs")
         data = build_teacher_density(samples, device, cache, use_gt=args.use_gt_density)
-    # --- tách train/test theo fold (leak-free, đúng protocol PanNuke) ---
-    if args.dataset == "pannuke" and args.test_fold is not None:
-        train_idx = [i for i, d in enumerate(data) if d["fold"] != args.test_fold]
-        test_data = [d for d in data if d["fold"] == args.test_fold]
-        assert train_idx and test_data, f"test_fold={args.test_fold} không tách được (train={len(train_idx)}, test={len(test_data)})"
-        n_tr_folds = sorted({d["fold"] for d in data if d["fold"] != args.test_fold})
-        print(f"[SPLIT] train folds={n_tr_folds} ({len(train_idx)} imgs) | "
-              f"TEST fold={args.test_fold} ({len(test_data)} imgs) — leak-free")
+    # --- CROSS-FITTING K-fold (leak-free cho NuInsSeg: mỗi ảnh dự đoán bởi model không train nó) ---
+    if args.kfold and args.kfold > 1:
+        N = len(data)
+        fold_of = assign_kfold([d["organ"] for d in data], args.kfold, args.seed)
+        all_p = [None] * N; all_g = [None] * N; all_o = [None] * N
+        for f in range(args.kfold):
+            tr = [i for i in range(N) if fold_of[i] != f]
+            te = [i for i in range(N) if fold_of[i] == f]
+            print(f"[CV] fold {f+1}/{args.kfold}: train {len(tr)} | held-out predict {len(te)}")
+            m = train(data, device, args.epochs, args.student_ch, args.lr, tr,
+                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
+            of = predict_r2(m, [data[i] for i in te], device)
+            for k, i in enumerate(te):
+                all_p[i] = of["preds"][k]; all_g[i] = of["gts"][k]; all_o[i] = of["organs"][k]
+        out = {"preds": all_p, "gts": all_g, "organs": all_o}
+        print(f"[CV] ghép {N} dự đoán leak-free ({args.kfold}-fold cross-fitting)")
     else:
-        train_idx = list(range(len(data)))
-        test_data = data
-        if args.dataset == "pannuke":
-            print("[SPLIT] WARN: không có --test_fold -> train+predict TOÀN BỘ (LEAK, chỉ debug)")
-    model = train(data, device, args.epochs, args.student_ch, args.lr, train_idx,
-                  args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
-    out = predict_r2(model, test_data, device)
+        # --- tách train/test theo fold (PanNuke) hoặc train-all (debug) ---
+        if args.dataset == "pannuke" and args.test_fold is not None:
+            train_idx = [i for i, d in enumerate(data) if d["fold"] != args.test_fold]
+            test_data = [d for d in data if d["fold"] == args.test_fold]
+            assert train_idx and test_data, f"test_fold={args.test_fold} không tách được (train={len(train_idx)}, test={len(test_data)})"
+            n_tr_folds = sorted({d["fold"] for d in data if d["fold"] != args.test_fold})
+            print(f"[SPLIT] train folds={n_tr_folds} ({len(train_idx)} imgs) | "
+                  f"TEST fold={args.test_fold} ({len(test_data)} imgs) — leak-free")
+        else:
+            train_idx = list(range(len(data)))
+            test_data = data
+            print("[SPLIT] WARN: train+predict TOÀN BỘ (LEAK). Dùng --kfold (NuInsSeg) / --test_fold (PanNuke).")
+        model = train(data, device, args.epochs, args.student_ch, args.lr, train_idx,
+                      args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
+        out = predict_r2(model, test_data, device)
     pickle.dump(out, open(args.out, "wb"))
     mu = np.array([p["mu"] for p in out["preds"]])
     sg = np.array([p["sigma"] for p in out["preds"]])
