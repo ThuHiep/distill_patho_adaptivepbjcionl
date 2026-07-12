@@ -132,6 +132,31 @@ Per-fold (Winkler R2-cluster / KD ; MAE R2 / KD ; worst-org R2-mondrian, #under)
 *(Bản CÓ-colon (superseded, không dùng cho paper): KD Winkler bị colon-leak thổi lên 30.9, worst-tissue
 R2-mondrian 0.900/0/56, MAE hòa 4.16/4.30. Loại colon cho con số sạch + mạnh hơn.)*
 
+## 9. Baseline hiện đại (Q1) — kế hoạch, LÀM LẦN LƯỢT sau khi có kết quả (2026-07-13)
+
+Yêu cầu: cần ≥3-4 baseline **2024-2026** (recent) mới thuyết phục Q1 (giống Paper 1 so SAOCP/FACI).
+Phát hiện: niche "counting NHẸ + interval CALIBRATED" gần như TRỐNG 2025-26 → đó là novelty gap;
+baseline recent lấy từ 2 dòng lân cận, đều CÓ CODE. **Bước 0 mỗi baseline: verify repo + weight chạy được.**
+
+**Trục accuracy (student nhẹ đếm giỏi không) — count MAE:**
+- **CellViT++** (1/2025, github TIO-IKIM/CellViT) — SOTA nuclei PanNuke, NẶNG → mốc SOTA (ta nhẹ hơn + có UQ).
+- **NuLite** (2024, arxiv 2408.01797) — lightweight nuclei PanNuke → đối thủ nhẹ cùng hạng cân.
+- PathoSAM teacher count (đã có) — mốc teacher.
+
+**Trục reliability (interval — CORE, PHẢI thắng) — Winkler/coverage, ÁP LÊN CÙNG student nhẹ (fair compute):**
+- **CQR** — Conformalized Quantile Regression (yromano/cqr; MAPIE cập nhật 6/2025) — chuẩn interval hiện đại.
+- **CHDQR** — Conformalized High-Density QR (11/2024, arxiv 2411.01266) — cải tiến CQR gần đây.
+- **MC-Dropout** (Gal 2016) + **Deep Ensembles** (Lakshminarayanan 2017) — mốc UQ kinh điển (reviewer vẫn đòi;
+  khảo sát 2025 IOPscience ae2e7b: conformal thường thắng chúng về coverage → đúng story của ta).
+
+**Thiết kế so sánh:** method counting (kể cả 2025) chỉ cho ĐIỂM → bọc conformal (σ hằng) cho chúng → chứng minh
+σ heteroscedastic distilled cho interval TỐT HƠN. Bán: "method đếm hiện đại KHÔNG cho bất định per-ảnh; của tôi có, calibrated."
+
+**THỨ TỰ LÀM (sau khi NuInsSeg cross-fit xong):**
+1. Nhóm UQ trên cùng student (rẻ, không cần env mới): MC-Dropout → Deep Ensembles → CQR → CHDQR. Bảng reliability.
+2. Nhóm accuracy nặng: verify + chạy NuLite, CellViT++ (cần env/weight riêng trên vast — rủi ro môi trường, làm sau).
+Chạy so sánh trên **PanNuke leak-free no-colon** (đã có) để đối chiếu trực tiếp bảng mục 8.
+
 ## 7. ▶ TIẾP THEO (resume sau khi ngủ) — PanNuke dataset 2
 
 ### 7.0 Trạng thái vast khi tạm ngừng
