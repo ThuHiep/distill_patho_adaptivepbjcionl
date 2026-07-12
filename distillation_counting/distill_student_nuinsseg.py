@@ -338,8 +338,12 @@ def main():
     else:
         cache = args.cache or f"{REPO}/work/teacher_targets_nuinsseg.pkl"
         os.makedirs(os.path.dirname(cache) or ".", exist_ok=True)
-        samples = build_index(find_root())
-        print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
+        if os.path.exists(cache):
+            samples = None   # cache tự chứa img/gt/organ -> KHÔNG cần raw NuInsSeg
+            print(f"[A] cache có sẵn -> bỏ qua build_index (không cần raw data)")
+        else:
+            samples = build_index(find_root())
+            print(f"indexed {len(samples)} pairs, {len(set(s['organ'] for s in samples))} organs")
         data = build_teacher_targets(samples, device, cache)
 
     # --- loại tissue (vd colon: Lizard-overlap leak của teacher, y hệt Paper 1) ---
