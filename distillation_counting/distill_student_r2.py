@@ -118,7 +118,7 @@ def build_pannuke_density(root, folds, device, cache, use_gt=False):
                         dens[mr] += 1.0 / a
             img_r = np.asarray(Image.fromarray(img).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
             data.append({"img": img_r.astype(np.uint8), "density": dens,
-                         "gt": float(gt), "organ": s["tissue"]})
+                         "gt": float(gt), "organ": s["tissue"], "fold": int(fold)})
             n_done += 1
             if n_done % 200 == 0:
                 print(f"[A] {n_done} imgs {(time.time()-t0)/n_done:.2f}s/img")
@@ -237,6 +237,9 @@ def main():
     ap.add_argument("--dataset", choices=["nuinsseg", "pannuke"], default="nuinsseg")
     ap.add_argument("--pannuke_root", default="/workspace/sam3_research/data/pannuke")
     ap.add_argument("--pannuke_folds", default="1,2,3", help="fold PanNuke dùng, vd '1,2,3' hoặc '3'")
+    ap.add_argument("--test_fold", type=int, default=None,
+                    help="PanNuke: HELD-OUT fold để test (leak-free). Train trên các fold còn lại, "
+                         "predict CHỈ trên test_fold. Bỏ trống -> train+predict toàn bộ (chỉ để debug).")
     ap.add_argument("--cache", default=None, help="mặc định tự đặt theo dataset")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
@@ -260,9 +263,22 @@ def main():
         samples = build_index(find_root())
         print(f"indexed {len(samples)} pairs")
         data = build_teacher_density(samples, device, cache, use_gt=args.use_gt_density)
-    model = train(data, device, args.epochs, args.student_ch, args.lr, list(range(len(data))),
+    # --- tách train/test theo fold (leak-free, đúng protocol PanNuke) ---
+    if args.dataset == "pannuke" and args.test_fold is not None:
+        train_idx = [i for i, d in enumerate(data) if d["fold"] != args.test_fold]
+        test_data = [d for d in data if d["fold"] == args.test_fold]
+        assert train_idx and test_data, f"test_fold={args.test_fold} không tách được (train={len(train_idx)}, test={len(test_data)})"
+        n_tr_folds = sorted({d["fold"] for d in data if d["fold"] != args.test_fold})
+        print(f"[SPLIT] train folds={n_tr_folds} ({len(train_idx)} imgs) | "
+              f"TEST fold={args.test_fold} ({len(test_data)} imgs) — leak-free")
+    else:
+        train_idx = list(range(len(data)))
+        test_data = data
+        if args.dataset == "pannuke":
+            print("[SPLIT] WARN: không có --test_fold -> train+predict TOÀN BỘ (LEAK, chỉ debug)")
+    model = train(data, device, args.epochs, args.student_ch, args.lr, train_idx,
                   args.w_density, args.w_count, args.w_nll, args.beta, args.bs, args.detach_mu)
-    out = predict_r2(model, data, device)
+    out = predict_r2(model, test_data, device)
     pickle.dump(out, open(args.out, "wb"))
     mu = np.array([p["mu"] for p in out["preds"]])
     sg = np.array([p["sigma"] for p in out["preds"]])
