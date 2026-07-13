@@ -106,7 +106,8 @@ OUT=$WK/student_kd_nuinsseg_cv5.pkl
 [ -f "$OUT" ] || $RUN python $DC/distill_student_nuinsseg.py --dataset nuinsseg --kfold 5 --out "$OUT"
 
 echo "############ [7] cài dep baseline + clone repo (chạy baseline ở python BASE image) ############"
-pip install -q conditionalconformal statsmodels tqdm pytorch_lightning configargparse 2>&1 | tail -2 || true
+pip install -q conditionalconformal statsmodels tqdm pytorch_lightning configargparse \
+    scikit-learn scipy pandas 2>&1 | tail -2 || true
 cd $DC
 [ -d pcp ]   || git clone -q https://github.com/yaozhang24/pcp.git pcp
 [ -d R2CCP ] || git clone -q https://github.com/EtashGuha/R2CCP.git R2CCP
@@ -121,6 +122,8 @@ run_pk () {  # $1=eval script  $2=preds  $3+=extra
 for F in 1 2 3; do
   P=$WK/student_r2_pannuke_f${F}_nocolon_poisson_feat.pkl
   KD=$WK/student_kd_pannuke_f${F}_nocolon.pkl
+  # ★ NEO bảng 8c: R2 (global/mondrian/cluster) vs KD — cấu hình CHỐT n_clusters=5, seeds=20
+  run_pk eval_r2_grouped.py "$P" --kd "$KD" --seeds 20 --n_clusters 5 --min_group 15 --min_organ_imgs 10
   # (μ,σ) recent: CondConf 2025, PCP 2024
   run_pk eval_condconf_grouped.py "$P" --seeds 10 --min_organ_imgs 10
   run_pk eval_pcp_grouped.py      "$P" --pcp_dir ./pcp --seeds 10 --min_organ_imgs 10
@@ -131,6 +134,8 @@ for F in 1 2 3; do
 done
 # NuInsSeg
 P=$WK/student_r2_nuinsseg_cv5_poisson_feat.pkl
+KD=$WK/student_kd_nuinsseg_cv5.pkl
+run_pk eval_r2_grouped.py "$P" --kd "$KD" --seeds 20 --n_clusters 5 --min_group 15 --min_organ_imgs 10
 run_pk eval_condconf_grouped.py "$P" --seeds 10 --min_organ_imgs 10
 run_pk eval_pcp_grouped.py      "$P" --pcp_dir ./pcp --seeds 10 --min_organ_imgs 10
 run_pk eval_r2ccp.py "$P" --r2ccp_dir ./R2CCP --seeds 5 --max_epochs 100 --min_organ_imgs 10
