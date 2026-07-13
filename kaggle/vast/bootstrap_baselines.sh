@@ -44,6 +44,14 @@ echo "############ [1] repo ############"
 if [ ! -d "$REPO/.git" ] && [ -n "$GIT_URL" ]; then git clone "$GIT_URL" "$REPO"; fi
 cd $REPO && git pull --ff-only 2>/dev/null || true
 
+echo "############ [1b] thử PHỤC HỒI work/ từ Kaggle (nếu lần trước đã backup) — bỏ qua rebuild ############"
+KUSER="${KAGGLE_USER:-hipinhththu}"
+if [ -z "$(find $WK -name 'teacher_density_*.pkl' 2>/dev/null | head -1)" ]; then
+  kaggle datasets download -d $KUSER/sam3-paper2-work --unzip -p $WK 2>/dev/null \
+    && echo "  -> phục hồi work/ từ Kaggle OK (teacher cache + pkl có sẵn, khỏi build)" \
+    || echo "  -> chưa có backup Kaggle (lần đầu) -> sẽ build teacher cache ở [5]"
+fi
+
 echo "############ [2] tải data (PanNuke + NuInsSeg) ############"
 mkdir -p $REPO/data/pannuke $REPO/data/nuinsseg
 if [ ! -e "$REPO/data/pannuke"/*/images.npy ] && [ -z "$(find $REPO/data/pannuke -name images.npy 2>/dev/null | head -1)" ]; then
@@ -72,6 +80,20 @@ for F in 1 2 3; do
 done
 OUT=$WK/student_r2_nuinsseg_cv5_poisson_feat.pkl
 [ -f "$OUT" ] || $RUN python $DC/distill_student_r2.py --dataset nuinsseg --kfold 5 --dump_feat --out "$OUT"
+
+echo "############ [5b] AUTO-BACKUP work/ lên Kaggle (teacher cache + pkl) — chống mất lần nữa ############"
+# upload NGAY sau khi có teacher cache + pkl R2, để máy chết cũng khỏi build lại.
+KUSER="${KAGGLE_USER:-hipinhththu}"
+META=$WK/dataset-metadata.json
+if [ ! -f "$META" ]; then
+  cat > $META <<EOF
+{ "title": "SAM3 Paper2 work (teacher cache + R2/KD pkls)", "id": "$KUSER/sam3-paper2-work", "licenses": [{"name": "CC0-1.0"}] }
+EOF
+  kaggle datasets create -p $WK -r zip -q 2>&1 | tail -2 || echo "  (tạo dataset lỗi — kiểm kaggle.json)"
+else
+  kaggle datasets version -p $WK -m "work backup $(date +%Y%m%d-%H%M)" -r zip -q 2>&1 | tail -2 || true
+fi
+echo "  -> https://www.kaggle.com/datasets/$KUSER/sam3-paper2-work (tải về máy mới: kaggle datasets download -d $KUSER/sam3-paper2-work --unzip -p $WK)"
 
 echo "############ [6] train KD (mốc) ############"
 for F in 1 2 3; do
