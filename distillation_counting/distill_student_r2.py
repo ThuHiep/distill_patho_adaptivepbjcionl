@@ -85,6 +85,14 @@ class DensitySigmaUNet(nn.Module):
             log_sigma = log_s
         return density, log_sigma
 
+    @torch.no_grad()
+    def pooled_feat(self, x):
+        """Đặc trưng sâu/ảnh = global-avg-pool bottleneck (ch*8 chiều). Cho baseline R2CCP/FFCP
+        (áp method CP hiện đại lên biểu diễn distilled — leak-free vì tính bằng chính model dự đoán ảnh đó)."""
+        x1 = self.d1(x); x2 = self.d2(self.p1(x1)); x3 = self.d3(self.p2(x2))
+        xb = self.bott(self.p3(x3))
+        return xb.mean(dim=(2, 3))                  # (B, ch*8)
+
 
 # ===================== Phase A: teacher density targets =====================
 @torch.no_grad()
@@ -222,7 +230,7 @@ def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, be
 
 # ===================== Phase C: inference -> (mu, sigma) =====================
 @torch.no_grad()
-def predict_r2(model, data, device):
+def predict_r2(model, data, device, dump_feat=False):
     model.eval()
     preds, gts, organs = [], [], []
     for d in data:
@@ -230,7 +238,10 @@ def predict_r2(model, data, device):
         dens_S, log_sigma = model(img)
         mu = float(count_from_density(dens_S)[0])
         sigma = float(torch.exp(log_sigma)[0])
-        preds.append({"mu": mu, "sigma": sigma})
+        p = {"mu": mu, "sigma": sigma}
+        if dump_feat:
+            p["feat"] = model.pooled_feat(img)[0].cpu().numpy().astype(np.float32)  # (ch*8,) leak-free
+        preds.append(p)
         gts.append([d["gt"]]); organs.append(d["organ"])
     return {"preds": preds, "gts": gts, "organs": organs}
 
@@ -264,6 +275,8 @@ def main():
                     help="PanNuke: loại tissue chứa chuỗi này (case-insensitive, phân tách ','). "
                          "Vd 'colon' — PathoSAM train có Lizard chứa PanNuke-colon (leak teacher), "
                          "loại y hệt Paper 1 để tránh distill từ tín hiệu memorized.")
+    ap.add_argument("--dump_feat", action="store_true",
+                    help="lưu thêm đặc trưng sâu/ảnh (pooled bottleneck) vào pkl -> cho baseline R2CCP/FFCP")
     ap.add_argument("--cache", default=None, help="mặc định tự đặt theo dataset")
     ap.add_argument("--out", default=f"{REPO}/work/student_r2_nuinsseg_preds.pkl")
     ap.add_argument("--seed", type=int, default=42)
@@ -312,7 +325,7 @@ def main():
             m = train(data, device, args.epochs, args.student_ch, args.lr, tr,
                       args.w_density, args.w_count, args.w_nll, args.beta, args.bs,
                       args.detach_mu, args.sigma_mode)
-            of = predict_r2(m, [data[i] for i in te], device)
+            of = predict_r2(m, [data[i] for i in te], device, dump_feat=args.dump_feat)
             for k, i in enumerate(te):
                 all_p[i] = of["preds"][k]; all_g[i] = of["gts"][k]; all_o[i] = of["organs"][k]
         out = {"preds": all_p, "gts": all_g, "organs": all_o}
@@ -333,7 +346,7 @@ def main():
         model = train(data, device, args.epochs, args.student_ch, args.lr, train_idx,
                       args.w_density, args.w_count, args.w_nll, args.beta, args.bs,
                       args.detach_mu, args.sigma_mode)
-        out = predict_r2(model, test_data, device)
+        out = predict_r2(model, test_data, device, dump_feat=args.dump_feat)
     pickle.dump(out, open(args.out, "wb"))
     mu = np.array([p["mu"] for p in out["preds"]])
     sg = np.array([p["sigma"] for p in out["preds"]])
