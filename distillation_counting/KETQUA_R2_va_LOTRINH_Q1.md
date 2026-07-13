@@ -287,12 +287,29 @@ Chỉ baseline có code official hoặc thuật toán kinh điển mới CHẠY;
 | MC-Dropout / Deep Ensembles / CQR / CHDQR | 2016-24 | tự code (kinh điển) | reliability | ✅ chạy |
 | **CondConf** (Gibbs et al.) | 2025 | package official | worst-org | ✅ chạy |
 | **PCP** (Zhang & Candès) | 2024 | repo official | worst-org | ✅ chạy |
+| **R2CCP** (Guha et al., ICLR) | 2024 | repo official (pip dep crlibm thừa → dùng repo) | efficiency, **count-natural** | ✅ chạy (cần `--dump_feat`) |
 | CoCP (2603.01719) | 2026 | **no code** | efficiency | 📎 **CITE only** (dừng tái hiện) |
-| FFCP (2412.00653) | NeurIPS2025 | code official | efficiency | 📎 **CITE only** (cần re-run dump feature + không đấu worst-org → cost>value) |
+| FFCP (2412.00653) | NeurIPS2025 | code official NHƯNG | efficiency | 📎 **CITE only** (dep `auto_LiRPA` xung đột torch/numpy → brittle cả trên vast; trục đã trùng R2CCP) |
 | PIT-CP / SpeedCP / Zero-inflated | 2026 | no code | — | 📎 CITE (Related Work) |
 
-→ **6 baseline CHẠY thật** (4 sàn + CondConf + PCP), 2 cái đấu thẳng worst-org, **không tái hiện gì**.
-Các method 2026/2025 no-code-usable → cite trung thực "code chưa công khai → không reproduce công bằng".
+→ **7 baseline CHẠY thật** (4 sàn + CondConf + PCP + R2CCP); CondConf/PCP đấu worst-org, R2CCP+sàn đấu
+efficiency. **3 recent code-official 2024-2025** (CondConf/PCP/R2CCP) → trả lời "sao không baseline mới".
+Method no-code-usable (FFCP brittle-dep, CoCP/2026 no-code) → cite trung thực trong Related Work.
+
+**R2CCP cần feature:** `distill_student_r2.py --dump_feat` (thêm cờ) lưu pooled bottleneck/ảnh vào pkl.
+Cần RE-RUN leak-free 1 lần để tạo pkl có feat (tái dùng teacher cache, không cần PathoSAM):
+```bash
+# PanNuke (mỗi fold) + NuInsSeg, thêm --dump_feat, out có hậu tố _feat:
+for F in 1 2 3; do python distill_student_r2.py --dataset pannuke --pannuke_folds 1,2,3 --test_fold $F \
+  --exclude_tissue colon --dump_feat --out ../work/student_r2_pannuke_f${F}_nocolon_poisson_feat.pkl; done
+python distill_student_r2.py --dataset nuinsseg --kfold 5 --dump_feat \
+  --out ../work/student_r2_nuinsseg_cv5_poisson_feat.pkl
+# rồi:
+git clone https://github.com/EtashGuha/R2CCP.git ; pip install pytorch_lightning configargparse torchvision
+for F in 1 2 3; do python eval_r2ccp.py --preds ../work/student_r2_pannuke_f${F}_nocolon_poisson_feat.pkl \
+  --r2ccp_dir ./R2CCP --seeds 5 --max_epochs 100 --min_organ_imgs 10; done
+python eval_r2ccp.py --preds ../work/student_r2_nuinsseg_cv5_poisson_feat.pkl --r2ccp_dir ./R2CCP --seeds 5 --max_epochs 100
+```
 
 ### Bước 2 (SAU, nặng, cần env riêng): accuracy baselines
 - **NuLite** (2024, arxiv 2408.01797) + **CellViT++** (2025, github TIO-IKIM/CellViT): verify repo+weight →
