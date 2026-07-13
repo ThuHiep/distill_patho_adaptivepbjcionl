@@ -233,6 +233,36 @@ Ghi Winkler/MAE/worst-org mỗi baseline vào bảng mới (mục 8c) so với R
 R2 σ-học/Poisson ≥ MC-Dropout/Ensemble/CQR/CHDQR về Winkler+worst-org ở CÙNG compute — vì niche
 "đếm nhẹ + interval calibrated + coverage theo-mô" gần như trống.
 
+**Định vị 4 cái trên = SÀN UQ bắt buộc** (reviewer luôn đòi MC-Dropout/DE): MC-Dropout(2016)/DE(2017)/
+CQR(2019) là kinh điển, CHDQR(2024) recent. Baseline RECENT chính (2025) là Conditional Conformal ↓.
+
+#### ✅ RECENT 2025 baseline: Conditional Conformal (Gibbs–Cherian–Candès) — CODE XONG (2026-07-13)
+`eval_condconf_grouped.py`. **Dùng ĐÚNG package chính thức `conditionalconformal` (CondConf)** — không
+tự chế lại thuật toán simplex-cutoff (trung thực tuyệt đối). arXiv 2305.12616, JRSS-B **2025** (đã verify
+citation + đọc code gốc). Đây là **SOTA 2025 cho conditional coverage** → đấu TRỰC TIẾP trục worst-org
+của R2 (clustered/Mondrian conformal). Áp lên CÙNG score S=|y−μ|/σ + CÙNG (μ,σ) student R2 leak-free →
+**không cần train lại, không cần GPU/PathoSAM**, chạy thẳng trên pkl R2 đã có.
+- Basis Φ(x)=[1,onehot(organ)] (mode group-conditional chuẩn của paper) → coverage bảo đảm từng organ.
+  Cũng chạy Φ=[1] (marginal) làm mốc. exact=True (imputation hữu hạn mẫu, không RKHS).
+- Cùng seeds/cal_ratio/organ_conditional_stats/Winkler → so trực tiếp bảng mục 8.
+- **Smoke test venv (package thật, synthetic)**: basis group nâng worst-org 0.787→0.844, org-gap
+  0.147→0.105 (đúng lý thuyết). Wrapper verified.
+
+**LỆNH (vast HOẶC Mac — chỉ CPU + numpy/scipy/cvxpy):**
+```bash
+pip install conditionalconformal    # 1 lần, không đụng penv PathoSAM
+cd /workspace/sam3_research/distillation_counting
+for F in 1 2 3; do
+  python eval_condconf_grouped.py --preds ../work/student_r2_pannuke_f${F}_nocolon_poisson.pkl \
+    --seeds 10 --alpha 0.1 --min_organ_imgs 10 ; done
+python eval_condconf_grouped.py --preds ../work/student_r2_nuinsseg_cv5_poisson.pkl \
+  --seeds 10 --alpha 0.1 --min_organ_imgs 10
+```
+So `CondConf-group` worst-org/Winkler với `R2-cluster/R2-mondrian` (mục 8). **Story Q1:** cùng student
++ cùng score, R2 ngang/hơn conditional coverage của SOTA-2025 mà còn thắng Winkler+MAE (σ học được +
+đếm chính xác) → phương pháp mình cạnh tranh được với calibration hiện đại nhất mà nhẹ hơn nhiều.
+*(R2CCP ICLR2024 + CHDQR: chưa ưu tiên — user chọn Conditional Conformal làm recent chính.)*
+
 ### Bước 2 (SAU, nặng, cần env riêng): accuracy baselines
 - **NuLite** (2024, arxiv 2408.01797) + **CellViT++** (2025, github TIO-IKIM/CellViT): verify repo+weight →
   chạy trên PanNuke fold test → count MAE. Đối chiếu "student nhẹ MAE ngang + có UQ mà chúng không có".
