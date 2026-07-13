@@ -73,13 +73,14 @@ if [ ! -d "$PENV/conda-meta" ]; then
 fi
 
 echo "############ [5] train R2 --dump_feat (tự build teacher cache) ############"
+# --detach_mu = CẤU HÌNH CHỐT (NLL chỉ dạy σ; thiếu nó NLL-coupling làm HỎNG MAE 10→18). BẮT BUỘC.
 for F in 1 2 3; do
   OUT=$WK/student_r2_pannuke_f${F}_nocolon_poisson_feat.pkl
   [ -f "$OUT" ] || $RUN python $DC/distill_student_r2.py --dataset pannuke --pannuke_folds 1,2,3 \
-      --test_fold $F --exclude_tissue colon --dump_feat --out "$OUT"
+      --test_fold $F --exclude_tissue colon --detach_mu --dump_feat --out "$OUT"
 done
 OUT=$WK/student_r2_nuinsseg_cv5_poisson_feat.pkl
-[ -f "$OUT" ] || $RUN python $DC/distill_student_r2.py --dataset nuinsseg --kfold 5 --dump_feat --out "$OUT"
+[ -f "$OUT" ] || $RUN python $DC/distill_student_r2.py --dataset nuinsseg --kfold 5 --detach_mu --dump_feat --out "$OUT"
 
 echo "############ [5b] AUTO-BACKUP work/ lên Kaggle (teacher cache + pkl) — chống mất lần nữa ############"
 # upload NGAY sau khi có teacher cache + pkl R2, để máy chết cũng khỏi build lại.
