@@ -24,7 +24,19 @@ Chạy:
 """
 from __future__ import annotations
 import argparse, os, pickle, sys, warnings
+import random as _random
 import numpy as np
+
+# numpy-2 trả np.int64; python-3.12 random.seed CHỈ nhận int/float/str/bytes -> ép int cho seed numpy.
+# (PCP nội bộ gọi random.seed(np_int) -> TypeError. Vá tương thích, không đổi thuật toán.)
+_orig_random_seed = _random.seed
+def _safe_seed(a=None, *args, **kw):
+    if isinstance(a, np.integer):
+        a = int(a)
+    elif isinstance(a, np.floating):
+        a = float(a)
+    return _orig_random_seed(a, *args, **kw)
+_random.seed = _safe_seed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eval_coverage_transfer import winkler_score, organ_conditional_stats  # noqa: E402

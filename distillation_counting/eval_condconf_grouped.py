@@ -80,7 +80,11 @@ def eval_condconf(mu, sg, gt, organs, alpha, seeds, cal_ratio, min_organ_imgs, b
         los, his = [], []
         smax = float(np.abs(gt[cal] - mu[cal]).max() / sg[cal].mean() + 1.0)  # cận an toàn nếu inf
         for i in tst:
-            iv = cc.predict(1 - alpha, np.array([[float(i)]]), score_inv, exact=True)
+            xte = np.array([[float(i)]])
+            try:
+                iv = cc.predict(1 - alpha, xte, score_inv, exact=True)
+            except Exception:   # exact simplex-cutoff đôi khi lỗi số (data ít/nhiều nhóm) -> binary search (mode chính thức)
+                iv = cc.predict(1 - alpha, xte, score_inv, exact=False)
             lo, hi = float(iv[0]), float(iv[1])
             if not np.isfinite(hi):
                 hi = mu[i] + smax * sg[i]
