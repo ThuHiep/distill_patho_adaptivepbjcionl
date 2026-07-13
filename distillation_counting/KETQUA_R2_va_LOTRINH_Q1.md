@@ -289,7 +289,8 @@ Chỉ baseline có code official hoặc thuật toán kinh điển mới CHẠY;
 | **PCP** (Zhang & Candès) | 2024 | repo official | worst-org | ✅ chạy |
 | **R2CCP** (Guha et al., ICLR) | 2024 | repo official (pip dep crlibm thừa → dùng repo) | efficiency, **count-natural** | ✅ chạy (cần `--dump_feat`) |
 | **CPCP** (Chen & Li, ICML) — Colorful Pinball | **2026** | repo official (Cqyiiii, MIT, deps sạch) | **worst-org** (min MSCE) | ✅ chạy (`eval_cpcp.py`, cần `--dump_feat`) |
-| CIR (orince, arXiv 2601.02769) — Conf. Interquantile | **2026** | repo official (torchcp; rpy2 chỉ ở baseline R) | efficiency | ⏳ khả thi NHƯNG cần tự train quantile-grid base model → tích hợp thêm; trục đã có R2CCP. Chờ quyết |
+| CIR (orince, arXiv 2601.02769) — Conf. Interquantile | **2026** | repo official (torchcp) | efficiency | 📎 **CITE** (user chốt bỏ — cần tự train quantile-grid base; trục efficiency đã có R2CCP 2024; tránh over-engineer) |
+| SOCP (arXiv 2606.29403) — Self-Organized CP | **2026** | **no code** | regional coverage | 📎 CITE (đúng trục nhưng chưa release code) |
 | CoCP (2603.01719) | 2026 | **no code** | efficiency | 📎 **CITE only** (dừng tái hiện) |
 | FFCP (2412.00653) | NeurIPS2025 | code official NHƯNG | efficiency | 📎 **CITE only** (dep `auto_LiRPA` xung đột torch/numpy → brittle cả trên vast; trục đã trùng R2CCP) |
 | PIT-CP / SpeedCP / Zero-inflated | 2026 | no code | — | 📎 CITE (Related Work) |
