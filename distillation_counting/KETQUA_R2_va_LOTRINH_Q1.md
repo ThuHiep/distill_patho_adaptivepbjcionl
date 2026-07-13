@@ -263,6 +263,37 @@ So `CondConf-group` worst-org/Winkler với `R2-cluster/R2-mondrian` (mục 8). 
 đếm chính xác) → phương pháp mình cạnh tranh được với calibration hiện đại nhất mà nhẹ hơn nhiều.
 *(R2CCP ICLR2024 + CHDQR: chưa ưu tiên — user chọn Conditional Conformal làm recent chính.)*
 
+#### ✅ PCP 2024 (Posterior Conformal Prediction, Zhang & Candès) — CODE XONG (2026-07-13)
+`eval_pcp_grouped.py`, **dùng ĐÚNG repo official `yaozhang24/pcp`** (class PCP). Mô hình phân phối score
+điều kiện = mixture theo CỤM tự phát hiện → coverage marginal + xấp xỉ conditional theo subgroup →
+**đấu trực tiếp worst-org**. Áp score S=|y−μ|/σ + (μ,σ) student R2 đã có → không train lại, CPU.
+Feature X=[μ,σ] (đặc trưng độ khó liên tục, đúng thiết kế PCP; KHÔNG cho nhãn organ → test worst-org
+công bằng hơn). Leak-free. Smoke test (code official): worst-org 0.874, org-gap 0.056, 0/4 under.
+```bash
+git clone https://github.com/yaozhang24/pcp.git   # cạnh distillation_counting
+pip install statsmodels tqdm                        # (scikit-learn/scipy đã có)
+for F in 1 2 3; do
+  python eval_pcp_grouped.py --preds ../work/student_r2_pannuke_f${F}_nocolon_poisson.pkl \
+    --pcp_dir ../../pcp --seeds 10 --min_organ_imgs 10 ; done
+python eval_pcp_grouped.py --preds ../work/student_r2_nuinsseg_cv5_poisson.pkl --pcp_dir ../../pcp --seeds 10
+```
+
+#### ▣ QUYẾT ĐỊNH BASELINE CUỐI (2026-07-13) — chỉ chạy cái CÓ code official / kinh điển
+**Nguyên tắc (user):** KHÔNG tái hiện SOTA không công khai code (reviewer sẽ nói "tái hiện sai nên mới thua").
+Chỉ baseline có code official hoặc thuật toán kinh điển mới CHẠY; SOTA no-code 2026 chỉ CITE.
+
+| Baseline | Năm | Nguồn | Trục | Trạng thái |
+|---|---|---|---|---|
+| MC-Dropout / Deep Ensembles / CQR / CHDQR | 2016-24 | tự code (kinh điển) | reliability | ✅ chạy |
+| **CondConf** (Gibbs et al.) | 2025 | package official | worst-org | ✅ chạy |
+| **PCP** (Zhang & Candès) | 2024 | repo official | worst-org | ✅ chạy |
+| CoCP (2603.01719) | 2026 | **no code** | efficiency | 📎 **CITE only** (dừng tái hiện) |
+| FFCP (2412.00653) | NeurIPS2025 | code official | efficiency | 📎 **CITE only** (cần re-run dump feature + không đấu worst-org → cost>value) |
+| PIT-CP / SpeedCP / Zero-inflated | 2026 | no code | — | 📎 CITE (Related Work) |
+
+→ **6 baseline CHẠY thật** (4 sàn + CondConf + PCP), 2 cái đấu thẳng worst-org, **không tái hiện gì**.
+Các method 2026/2025 no-code-usable → cite trung thực "code chưa công khai → không reproduce công bằng".
+
 ### Bước 2 (SAU, nặng, cần env riêng): accuracy baselines
 - **NuLite** (2024, arxiv 2408.01797) + **CellViT++** (2025, github TIO-IKIM/CellViT): verify repo+weight →
   chạy trên PanNuke fold test → count MAE. Đối chiếu "student nhẹ MAE ngang + có UQ mà chúng không có".
