@@ -85,9 +85,16 @@ def main():
             img = img.resize((args.infer_size, args.infer_size), Image.BILINEAR)
         x = inf.inference_transforms(np.array(img))            # (3,H,W)
         with torch.no_grad():
-            fwd = inf.model.forward(x[None].to(dev)) if args.no_tokens \
-                else inf.model.forward(x[None].to(dev), retrieve_tokens=True)
-            inst, _ = inf.get_cell_predictions_with_tokens(fwd, magnification=args.mag)
+            if args.no_tokens:
+                # forward không trả tokens -> gọi THẲNG calculate_instance_map như experiment
+                # script của họ (softmax 2 map rồi tính instance). Dùng cho LKCell.
+                fwd = inf.model.forward(x[None].to(dev))
+                fwd["nuclei_binary_map"] = torch.softmax(fwd["nuclei_binary_map"], dim=1)
+                fwd["nuclei_type_map"] = torch.softmax(fwd["nuclei_type_map"], dim=1)
+                _, inst = inf.model.calculate_instance_map(fwd, magnification=args.mag)
+            else:
+                fwd = inf.model.forward(x[None].to(dev), retrieve_tokens=True)
+                inst, _ = inf.get_cell_predictions_with_tokens(fwd, magnification=args.mag)
         count = len(inst[0]) if isinstance(inst, (list, tuple)) else len(inst)
         rows.append([os.path.splitext(os.path.basename(p))[0], count])
         if (k + 1) % 50 == 0:
