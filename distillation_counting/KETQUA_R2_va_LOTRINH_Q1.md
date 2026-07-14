@@ -280,6 +280,31 @@ low-count bị nới. Ghi honest limitation. corr(σ,\|e\|) mạnh nhất ở bi
 - → claim "computationally-efficient" có **số đo runtime thật**, không chỉ params/FLOPs. (Heavy net: chỉ cite
   params/FLOPs bảng A vì không dựng env họ ở đây — trung thực.)
 
+## ▶▶▶ RESUME 2026-07-15 — MỚI NHẤT (đọc ĐẦU TIÊN)
+
+**ĐÃ XONG THÊM (loạt hardening Q1 sau khi có bài phê bình — mục 8d):**
+Method (R2+σ Poisson+detach_mu) ✅ · Bảng 8c (4 baseline recent + KD) ✅ · Bước 2 accuracy (CellViT-SAM-H+LKCell-L+teacher
+count-MAE) ✅ · **A1** coverage-curve 4α ✅ · **A3** per-organ Wilson CI ✅ · **A5** sigma analysis ✅ · **A2** ablation
+σ-mode (poisson>NB>raw, NLL 4.21<4.58) ✅ · **A6** 3 training-seed (worst-org 0.78±0.02, ranking ổn định) ✅ ·
+**A4** latency thật (1.87ms/112MB) ✅ · **Ⓓ** siết claim ✅. Ranh giới Paper1(PB-JCI)/Paper2(distillation) đã rõ.
+Scripts mới: analysis_coverage_curve.py, analysis_sigma.py, measure_latency.py, dump_cellvit_counts.py, prep/eval_heavy_count.py.
+
+**★ VIỆC TIẾP THEO (ưu tiên trên xuống):**
+1. **VIẾT MANUSCRIPT** (việc lớn nhất) — số liệu + câu chuyện đã đủ trong md này + MODEL_va_KETQUA_paper2.md.
+   Đóng gói novelty = *"Distributional Count Distillation under mean–variance optimization conflict"* (KHÔNG claim PB-JCI = Paper 1).
+   Thứ tự nên viết: Method (rõ nhất) → Experiments → Results → Related Work → Intro → Abstract.
+2. **HÌNH (~4-5):** (a) sơ đồ DensitySigmaUNet; (b) reliability/coverage-per-organ bar (R2 vs KD vs CondConf);
+   (c) efficiency scatter params-vs-MAE + latency; (d) qualitative ảnh+density+interval; (e) coverage-curve (A1).
+3. **Tùy chọn strengthen (nếu dư thời gian/compute):** C2 lightweight-same-training baseline (một phần ở 3c) ·
+   cross-dataset transfer (train A→test B) · A2/A6 lặp trên PanNuke · đưa full UQ floor (ensemble/MC-dropout/CQR) vào bảng chính ·
+   PathoSAM GFLOPs (ô teacher bảng A) · gradient-analysis proposition cho detach_mu (đóng gói optimization-decoupling principle).
+4. **Housekeeping:** regenerate Kaggle API key (đã lộ) · withdraw bài Sound Event JOCO-D-26-00664 (thư đã soạn).
+
+**Backup pkl mới (poisson s0-2/raw/nb) chưa lên Kaggle** — số liệu đã trong md (A2/A6) nên OK; muốn tái tạo thì
+`kaggle datasets version -p work` trước khi destroy vast.
+
+---
+
 ## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
 
 **ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free
