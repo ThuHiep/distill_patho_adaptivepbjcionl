@@ -274,6 +274,12 @@ low-count bị nới. Ghi honest limitation. corr(σ,\|e\|) mạnh nhất ở bi
    calibration của poisson-anchor KHÔNG phải may mắn 1 lần. Novelty vững.
 3. MAE dao động 15.1–17.8 (~±1.3) → training variability THẬT nhưng vừa phải; paper báo mean±std qua seed.
 
+**A4 — LATENCY/VRAM THẬT (RTX 5090, `measure_latency.py`, student ch=32 @256):**
+- bs=1: **1.87 ms/ảnh** (536 img/s), **peak VRAM 112 MB**. | bs=32: 1608 img/s, VRAM 2.3 GB.
+- So CellViT-SAM-H cần **24–48 GB VRAM** → student nhẹ hơn **~200–400× bộ nhớ** + chạy real-time trên GPU phổ thông.
+- → claim "computationally-efficient" có **số đo runtime thật**, không chỉ params/FLOPs. (Heavy net: chỉ cite
+  params/FLOPs bảng A vì không dựng env họ ở đây — trung thực.)
+
 ## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
 
 **ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free
