@@ -36,6 +36,9 @@ def main():
     ap.add_argument("--mag", type=int, default=40)
     ap.add_argument("--infer_size", type=int, default=0, help="0=giữ nguyên; >0 resize vuông (thử 1024 nếu SAM-H lỗi shape)")
     ap.add_argument("--no_tokens", action="store_true", help="bỏ retrieve_tokens nếu version repo không có")
+    ap.add_argument("--lkcell", action="store_true",
+                    help="LKCell: __get_model gốc build sai (ViT signature) cho model unireplknet -> "
+                         "patch build đúng bằng chính class CellViT (=UniRepLKNet) + config của LKCell.")
     ap.add_argument("--limit", type=int, default=0, help=">0: chỉ N ảnh đầu (validate nhanh mode resize/tile)")
     args = ap.parse_args()
 
@@ -45,7 +48,26 @@ def main():
     # Ta TIN checkpoint (repo chính thức) -> ép weights_only=False. Chỉ đổi CÁCH NẠP, không đổi thuật toán.
     _orig_load = torch.load
     torch.load = lambda *a, **k: _orig_load(*a, **{**k, "weights_only": False})
+    import cell_segmentation.inference.cell_detection as _cd
     from cell_segmentation.inference.cell_detection import CellSegmentationInference
+
+    if args.lkcell:
+        # LKCell: build model ĐÚNG bằng class CellViT(=UniRepLKNet) + config, y hệt
+        # inference_cellvit_experiment_pannuke.py của họ (KHÔNG tái hiện, dùng code họ).
+        from models.segmentation.cell_segmentation.cellvit import CellViT as _LKCellViT
+
+        def _get_model_lk(self, model_type):
+            rc = self.run_conf
+            enc = rc["model"].get("pretrained_encoder")
+            if enc and not os.path.exists(str(enc)):
+                enc = None   # path train-time không có trên máy này; state_dict nạp full weights sau
+            return _LKCellViT(
+                model256_path=enc,
+                num_nuclei_classes=rc["data"]["num_nuclei_classes"],
+                num_tissue_classes=rc["data"]["num_tissue_classes"],
+                in_channels=rc["model"].get("input_chanels", 3),
+            )
+        _cd.CellSegmentationInference._CellSegmentationInference__get_model = _get_model_lk
 
     inf = CellSegmentationInference(model_path=args.ckpt, gpu=args.gpu)  # tự load model + transforms
     dev = next(inf.model.parameters()).device
