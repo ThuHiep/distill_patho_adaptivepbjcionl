@@ -242,6 +242,23 @@ NuInsSeg z-std 0.83 = **hơi over-conservative ở count thấp** (σ hơi rộn
 nhỏ (MAE tuyệt đối vẫn nhỏ: PanNuke 1.91, NuInsSeg 5.89). z-std NuInsSeg bin 0–10 = 0.63 (σ rộng gấp ~1.6×) → khoảng
 low-count bị nới. Ghi honest limitation. corr(σ,\|e\|) mạnh nhất ở bin 0–10 (0.55–0.57) → σ phân biệt tốt ca dễ/khó khi ít nhân.
 
+**A2 — ★ ABLATION σ-mode (chạy vast RTX5090 2026-07-15, NuInsSeg, cùng --detach_mu/hyperparams) — CHỐT NOVELTY:**
+
+| σ-mode | corr(σ,\|e\|) | z-std (→1) | NLL ↓ | \|z\|≤1.64 |
+|--------|--------------|-----------|-------|-----------|
+| **poisson-anchor (ours)** | +0.404 | **0.828** | **4.210** | 0.938 |
+| nb (Negative-Binomial, Var=μ+α·μ²) | +0.401 | 1.344 | 4.585 | 0.878 |
+| raw (Gaussian-hetero, σ=exp(s)) | +0.246 | 0.721 | 4.584 | 0.958 |
+
+**Kết luận A2 (trả lời trực tiếp phê bình "phải thắng NB/Gaussian"):**
+1. **Neo-mean là nguồn thông tin của σ:** poisson & nb (đều neo μ) corr ~+0.40 ≫ raw +0.246. → không phải head tự do.
+2. **Poisson-anchor thắng CALIBRATION cả NB lẫn raw:** NLL 4.21 < 4.58 (gap rõ), z-std 0.828 gần 1 nhất. NB corr
+   ngang nhưng z-std 1.344 (khoảng quá hẹp→under) + bất ổn theo count-bin (α·μ² làm σ bùng/xẹp).
+3. → **Dạng ĐƠN GIẢN HƠN (Poisson-anchor) cho phân phối calibrated tốt hơn NB tường minh + Gaussian-hetero** →
+   novelty vững, không "chỉ là √μ" cũng không bị NB thay thế. *(Lưu ý: single training run/mode; nên xác nhận qua
+   vài seed — A6 — vì NuInsSeg có training variability; nhưng gap NLL 4.21 vs 4.58 đủ rõ.)*
+   raw-σ ở đây corr +0.246 (khác −0.02 mục 8b do khác training run → lại củng cố cần A6).
+
 ## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
 
 **ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free

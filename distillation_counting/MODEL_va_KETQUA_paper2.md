@@ -3,7 +3,8 @@
 
 > Tài liệu này gom **những gì MÌNH tự thiết kế/cài đặt Ở PAPER 2** (giải thích chi tiết) và **kết quả đã chạy thật**.
 > Baseline của người khác chỉ *trích dẫn* (cuối file), không phải đóng góp của mình.
-> Nguyên tắc xuyên suốt: **không bịa, không heuristic** — mọi thành phần có cơ sở + đã kiểm chứng bằng số liệu.
+> Nguyên tắc xuyên suốt: **không bịa** — mọi thành phần **có cơ sở thống kê** + kiểm chứng bằng số liệu; các
+> hằng số thiết kế (clamp σ, n_clusters, ngưỡng min_group) là **design choice có kèm sensitivity**, KHÔNG tuyên bố "zero-heuristic".
 
 > ⚠️ **RANH GIỚI PAPER 1 vs PAPER 2 (đã đọc code — để KHÔNG double-claim):**
 > - **PAPER 1** = *"Predictor-Agnostic Joint Conformal Cell Counting under Shift"* — đóng góp: **PB-JCI**
@@ -24,8 +25,10 @@
 
 Chưng cất (distill) một mô hình foundation nặng (**PathoSAM ~640M**) thành một **student cực nhẹ ~1.9M** mà
 student KHÔNG chỉ đếm tế bào chính xác, mà còn **xuất ra một PHÂN PHỐI đếm per-ảnh** (μ = số đếm kỳ vọng,
-σ = độ bất định) → từ đó dựng **khoảng tin cậy (prediction interval) được hiệu chỉnh (calibrated)** đảm bảo
-phủ đúng **theo từng loại mô (organ-conditional)**. Định vị: **"nhẹ + đáng tin" (energy-efficient + trustworthy)**.
+σ = độ bất định) → từ đó dựng **khoảng tin cậy (prediction interval) được hiệu chỉnh (calibrated)** với coverage
+theo từng loại mô: **PanNuke đạt bảo đảm group-conditional (Mondrian, hữu hạn mẫu — 0/18 mô under mọi α)**;
+**NuInsSeg giảm mạnh subgroup-undercoverage** (empirical, còn 1 mô khó). Định vị: **"nhẹ + đáng tin"
+(computationally-efficient + trustworthy)** *(chưa đo joules → không claim "energy")*.
 
 ---
 
@@ -56,7 +59,9 @@ train 2 mạng. σ là **heteroscedastic** (thay đổi theo ảnh), học từ 
 - **Chẩn đoán:** head σ thô calibrated khi count đồng đều + data dồi dào (PanNuke corr(|err|,σ)=+0.53) nhưng
   **SẬP khi dải count khổng lồ + data ít** (NuInsSeg count 1→370): corr(|err|,σ)=−0.02 (σ thành nhiễu),
   σ runaway = 15703 → phình Winkler.
-- **Fix (có cơ sở, không heuristic):** neo σ vào **√μ** — dữ liệu đếm ~ Poisson (equidispersion: Var ≈ mean).
+- **Fix (có cơ sở thống kê):** neo σ vào **√μ** — Poisson-inspired (equidispersion Var≈mean là *mốc neo*, KHÔNG
+  giả định dữ liệu tuân Poisson chính xác; overdispersion do head learned-dispersion gánh). *(A2 xác nhận: dạng này
+  calibrated hơn cả Negative-Binomial tường minh lẫn Gaussian-hetero — NLL 4.21 vs 4.58.)*
   → σ tự có "count-scaling" miễn phí + chặn runaway; head chỉ còn học **hệ số phân tán** (dispersion) quanh mốc Poisson.
 - **Kết quả fix:** NuInsSeg Winkler **152.9 → 87.7** (std 36→6, lật TRƯỢT→ĐẠT); PanNuke cũng cải thiện
   **20.2 → 18.3**. **MỘT dạng σ, cả 2 dataset đều thắng** → đóng góp mạnh hơn là chỉ hack riêng 1 dataset.
@@ -79,7 +84,8 @@ Sau khi có (μ, σ) leak-free, dựng khoảng bằng **split conformal** trên
 - **global**: 1 quantile chung (mốc, ≈ split conformal thường).
 - **mondrian**: 1 quantile **mỗi organ** (khi đủ mẫu/mô — dùng cho PanNuke).
 - **cluster**: gom organ thành `n_clusters=5` theo **độ khó (từ σ)** rồi conformal từng cụm (khi ít mẫu/organ —
-  dùng cho NuInsSeg). → **"Adaptive"**: quy tắc chọn mondrian/cluster đặt ra *a priori* theo mật độ mẫu.
+  dùng cho NuInsSeg). → gọi **"data-regime-aware grouping"** (KHÔNG dùng "Adaptive" để tránh nhầm với
+  "Adaptive PB-JCI Online" của Paper 1); quy tắc chọn mondrian/cluster đặt ra *a priori* theo mật độ mẫu.
 - **Vì sao cluster vừa tăng coverage vừa giảm Winkler:** global 1 quantile → rộng cho organ dễ, hẹp cho organ
   khó (miss). Cluster cấp quantile riêng từng nhóm khó → cắt được cả bề rộng thừa lẫn miss-penalty.
   **KD không có σ học được nên KHÔNG khai thác được cluster** — đây là lợi thế của việc có σ.
@@ -154,7 +160,8 @@ riêng trên feature pooled (mất density) — ghi rõ.
 | NuLite-T (2024) | 17.12 | 26.16 | ✗ |
 | **Student R2 (ours)** | **1.935** | **10.49** | **✓ σ + interval** |
 
-→ Student **nhỏ nhất** (86–368× < heavy net, 9× < SOTA nhẹ nhất) + **ít FLOPs nhất** + là model **DUY NHẤT có UQ**.
+→ Student **nhỏ nhất** (86–368× < heavy net, 9× < SOTA nhẹ nhất) + **ít FLOPs nhất** + là model **duy nhất
+TRONG NHÓM BASELINE khảo sát có UQ calibrated** (các heavy net so ở đây chỉ cho điểm, không interval).
 
 ### C4. Count-MAE thật vs heavy net (Bước 2, Phần B) — NuInsSeg, leak-free, chạy RTX 5090
 Heavy net chạy **off-the-shelf** (checkpoint PanNuke của họ chưa từng thấy NuInsSeg → **OOD, không leak**).
@@ -169,7 +176,7 @@ Cấu hình: ảnh native 512, SAM-H feed 1024. N=665 khớp student.
 
 **Đọc trung thực (BẮT BUỘC — không tô hồng):**
 - ★ Student MAE **13.51 < cả teacher 15.80** → trò đếm tốt hơn CHÍNH THẦY (MAE/RMSE) dù nhỏ 340×.
-- Student **thắng MAE + RMSE** (thấp nhất mọi method) + là model duy nhất có UQ.
+- Student **thắng MAE + RMSE** (thấp nhất mọi method Ở BẢNG NÀY) + là model duy nhất trong nhóm này có UQ.
 - **NHƯNG** teacher MAPE 28.3% và LKCell 38.8% < student 45.3% → student sai **tương đối** cao hơn (kém ở ảnh
   ít nhân do density-sum). **Student KHÔNG thắng tuyệt đối mọi metric.**
 - **Khung (bắt buộc):** đây là **in-domain-distill (rẻ) vs OOD-zero-shot** + lệch magnification — KHÔNG phải
@@ -200,5 +207,6 @@ Adaptive Online). Paper 2 chỉ *thay nguồn (μ,σ)*: từ "suy PB trên detec
 nhẹ distilled" (Paper 2).
 
 **Định vị Q1:** cùng student nhẹ ~1.9M, distillation của mình cho count **vừa chính xác hơn (MAE) vừa interval
-calibrated hơn + đảm bảo coverage theo từng mô** — và là mô hình **duy nhất có bất định calibrated** ở hạng cân
-nhỏ nhất. *Energy-efficient + trustworthy counting.*
+calibrated hơn + coverage theo từng mô mạnh hơn (PanNuke: bảo đảm Mondrian; NuInsSeg: giảm mạnh undercoverage)** —
+và là mô hình **duy nhất trong nhóm baseline có bất định calibrated** ở hạng cân nhỏ nhất.
+*Computationally-efficient + trustworthy counting.*
