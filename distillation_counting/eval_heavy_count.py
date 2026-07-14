@@ -81,6 +81,24 @@ def student_row(pkl, gt_from_pkl=True):
             "mape": float((ae / np.maximum(y, 1)).mean() * 100), "org_mae": org_mae, "worst": worst}
 
 
+def teacher_row(pkl):
+    """Teacher PathoSAM cache: list {density,gt,organ}. count = density.sum() (= tổng density teacher).
+    Reference: student distill TỪ teacher này -> so student giữ/vượt khả năng đếm của thầy."""
+    data = pickle.load(open(pkl, "rb"))
+    pred = np.array([float(d["density"].sum()) for d in data])
+    y = np.array([float(d["gt"]) for d in data])
+    organs = [d.get("organ", "_all_") for d in data]
+    ae = np.abs(pred - y)
+    by = defaultdict(list)
+    for i, o in enumerate(organs):
+        by[o].append(ae[i])
+    org_mae = {o: float(np.mean(v)) for o, v in by.items() if len(v) >= 5}
+    worst = max(org_mae.items(), key=lambda kv: kv[1]) if org_mae else (None, None)
+    return {"label": "Teacher PathoSAM (~640M)", "n": len(pred), "miss": 0,
+            "mae": float(ae.mean()), "rmse": float(np.sqrt((ae ** 2).mean())),
+            "mape": float((ae / np.maximum(y, 1)).mean() * 100), "org_mae": org_mae, "worst": worst}
+
+
 def pretty(rows):
     print("\n" + "=" * 84)
     print("PHẦN B — COUNT-MAE trên NuInsSeg (heavy net OOD off-the-shelf vs student in-domain)")
@@ -104,6 +122,7 @@ def main():
     ap.add_argument("--tiles_map", default=None)
     ap.add_argument("--label", default="HeavyNet")
     ap.add_argument("--student_pkl", default=None)
+    ap.add_argument("--teacher_pkl", default=None, help="cache teacher density (teacher_density_nuinsseg.pkl)")
     args = ap.parse_args()
 
     gt, organ = load_gt(args.gt)
@@ -111,6 +130,8 @@ def main():
     if args.preds:
         pred = load_preds(args.preds, args.tiles_map)
         rows.append(stats(gt, pred, organ, args.label))
+    if args.teacher_pkl:
+        rows.append(teacher_row(args.teacher_pkl))
     if args.student_pkl:
         rows.append(student_row(args.student_pkl))
     if not rows:
