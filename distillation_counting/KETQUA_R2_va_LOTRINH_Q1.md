@@ -259,6 +259,21 @@ low-count bị nới. Ghi honest limitation. corr(σ,\|e\|) mạnh nhất ở bi
    vài seed — A6 — vì NuInsSeg có training variability; nhưng gap NLL 4.21 vs 4.58 đủ rõ.)*
    raw-σ ở đây corr +0.246 (khác −0.02 mục 8b do khác training run → lại củng cố cần A6).
 
+**A6 — TRAINING-SEED variability (poisson × 3 seed, NuInsSeg, vast 2026-07-15):**
+
+| seed | MAE | NLL | worst-org (cluster, α=0.1) |
+|------|-----|-----|-----|
+| s0 | 15.14 | 4.310 | 0.809 |
+| s1 | 15.46 | 4.355 | 0.767 |
+| s2 | 17.75 | 4.437 | 0.767 |
+
+**Kết luận A6:**
+1. **worst-org = 0.78 ± 0.02** (range 0.767–0.809) → **KHỚP md 0.773** (feat-pkl 0.656 ở A3 là outlier thấp, không
+   đại diện). → paper báo **mean ± range**, không 1 điểm; con số ~0.77–0.78 vững.
+2. ★ **A2 ranking ỔN ĐỊNH qua seed:** NLL poisson {4.31, 4.36, 4.44} — **CẢ 3 seed đều < raw/nb (4.58)** → lợi thế
+   calibration của poisson-anchor KHÔNG phải may mắn 1 lần. Novelty vững.
+3. MAE dao động 15.1–17.8 (~±1.3) → training variability THẬT nhưng vừa phải; paper báo mean±std qua seed.
+
 ## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
 
 **ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free
