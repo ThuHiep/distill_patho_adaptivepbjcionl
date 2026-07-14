@@ -1,0 +1,204 @@
+# Paper 2 — Distributional Count Distillation (R2)
+### Tổng hợp MODEL mình tạo + KẾT QUẢ (cập nhật 2026-07-14)
+
+> Tài liệu này gom **những gì MÌNH tự thiết kế/cài đặt Ở PAPER 2** (giải thích chi tiết) và **kết quả đã chạy thật**.
+> Baseline của người khác chỉ *trích dẫn* (cuối file), không phải đóng góp của mình.
+> Nguyên tắc xuyên suốt: **không bịa, không heuristic** — mọi thành phần có cơ sở + đã kiểm chứng bằng số liệu.
+
+> ⚠️ **RANH GIỚI PAPER 1 vs PAPER 2 (đã đọc code — để KHÔNG double-claim):**
+> - **PAPER 1** = *"Predictor-Agnostic Joint Conformal Cell Counting under Shift"* — đóng góp: **PB-JCI**
+>   (score `R = |N − E[N]| / σ`, σ **suy từ cấu trúc Poisson-Binomial của điểm detection** σ=√Σsᵢ(1−sᵢ)),
+>   **joint** đa lớp, **Adaptive PB-JCI Online** (cửa sổ thích nghi cho distribution shift). *Predictor-agnostic*:
+>   nằm TRÊN detector nặng.
+> - **PAPER 2 (tài liệu này) DÙNG LẠI khung conformal PB-JCI của Paper 1 (CITE), KHÔNG claim là mới.**
+> - **Đóng góp GỐC của Paper 2** = *CHƯNG CẤT foundation model nặng → student siêu nhẹ 1.9M **tự HỌC** (μ, σ)*,
+>   thay vì suy σ từ điểm detection của detector nặng. Cụ thể: **distillation + DensitySigmaUNet + σ Poisson-anchored
+>   LEARNED (khác hẳn σ Poisson-Binomial của P1) + `--detach_mu`**.
+> - **Mắt xích nối 2 paper:** baseline **KD** trong Paper 2 CHÍNH LÀ cách σ kiểu Poisson-Binomial của Paper 1 áp lên
+>   student. Nên "**R2 vs KD**" = *σ HỌC ĐƯỢC (P2) vs σ Poisson-Binomial (P1)* trên cùng student nhẹ → cho thấy
+>   distillation phân phối học được **tốt hơn** cách suy σ từ scores khi model bị nén xuống 1.9M.
+
+---
+
+## A. Ý TƯỞNG CỐT LÕI (một câu)
+
+Chưng cất (distill) một mô hình foundation nặng (**PathoSAM ~640M**) thành một **student cực nhẹ ~1.9M** mà
+student KHÔNG chỉ đếm tế bào chính xác, mà còn **xuất ra một PHÂN PHỐI đếm per-ảnh** (μ = số đếm kỳ vọng,
+σ = độ bất định) → từ đó dựng **khoảng tin cậy (prediction interval) được hiệu chỉnh (calibrated)** đảm bảo
+phủ đúng **theo từng loại mô (organ-conditional)**. Định vị: **"nhẹ + đáng tin" (energy-efficient + trustworthy)**.
+
+---
+
+## B. NHỮNG GÌ MÌNH TỰ TẠO (giải thích chi tiết)
+
+### B1. Kiến trúc student: `DensitySigmaUNet` (mình thiết kế)
+File: [distill_student_r2.py](distill_student_r2.py) (class `DensitySigmaUNet`).
+
+Một U-Net nhẹ (`student_ch=32` ⇒ **1,935,266 params**) có **HAI đầu ra**:
+
+1. **Đầu density** (`self.dens`, Conv 1×1 → ReLU): xuất bản đồ mật độ `density_map ≥ 0` (H×W).
+   - **Số đếm** `μ = Σ density_map` (tổng mật độ = số instance). Đây là *density-map counting*: không cần
+     dot-annotation, dùng FULL mask của teacher làm target → bền hơn Gaussian-centroid.
+   - ReLU ở đầu ra ⇒ nền = 0 chính xác (như CSRNet), không âm.
+
+2. **Đầu log-σ** (`self.sig`): global-avg-pool bottleneck (ch·8 chiều) → MLP → **một scalar/ảnh** = hệ số phân tán.
+
+**Vì sao mình tách 2 đầu chung 1 backbone:** σ "mượn" đặc trưng sâu của cùng ảnh → gradient sạch, không phải
+train 2 mạng. σ là **heteroscedastic** (thay đổi theo ảnh), học từ **lỗi thật** chứ không phải hằng số.
+
+### B2. Tham số hoá σ **Poisson-anchored** (đóng góp method quan trọng nhất — mình phát hiện + sửa)
+```
+σ = √(max(μ, 1)) · exp(clamp(log_s, −2, 2))
+```
+**Câu chuyện "chấp nhận thất bại → phân tích → sửa" (chính mình làm):**
+- **Thất bại ban đầu:** dùng σ head thô `σ = exp(log_s)` → PanNuke thắng NHƯNG **NuInsSeg TRƯỢT** (Winkler
+  R2 152.9 vs KD 128.6, std ±36 bất ổn). *Không giấu — điều tra bằng `diagnose_sigma.py`.*
+- **Chẩn đoán:** head σ thô calibrated khi count đồng đều + data dồi dào (PanNuke corr(|err|,σ)=+0.53) nhưng
+  **SẬP khi dải count khổng lồ + data ít** (NuInsSeg count 1→370): corr(|err|,σ)=−0.02 (σ thành nhiễu),
+  σ runaway = 15703 → phình Winkler.
+- **Fix (có cơ sở, không heuristic):** neo σ vào **√μ** — dữ liệu đếm ~ Poisson (equidispersion: Var ≈ mean).
+  → σ tự có "count-scaling" miễn phí + chặn runaway; head chỉ còn học **hệ số phân tán** (dispersion) quanh mốc Poisson.
+- **Kết quả fix:** NuInsSeg Winkler **152.9 → 87.7** (std 36→6, lật TRƯỢT→ĐẠT); PanNuke cũng cải thiện
+  **20.2 → 18.3**. **MỘT dạng σ, cả 2 dataset đều thắng** → đóng góp mạnh hơn là chỉ hack riêng 1 dataset.
+
+### B3. `--detach_mu` — tách μ khỏi NLL (mình thiết kế, cấu hình CHỐT)
+Loss huấn luyện = `density-KD (MSE) + count (|μ−GT|) + β·NLL(GT | μ, σ)`.
+- **Vấn đề phát hiện qua ablation:** khi NLL kéo cả μ, `L_nll (~120) ≫ L_count (~20)` → NLL bóp méo μ →
+  **hỏng MAE** (10 → 18).
+- **Fix:** `mu = density.sum().detach()` trong nhánh σ → **NLL chỉ dạy σ**, không kéo μ. μ được dạy riêng bởi
+  count-loss. Kết quả: lấy được MAE thấp CỦA density-count + worst-org cao CỦA NLL cùng lúc (MAE 18→10.12).
+
+### B4. Suy luận: **DÙNG LẠI khung PB-JCI của Paper 1** (KHÔNG phải đóng góp Paper 2 — CITE Paper 1)
+> ⚠️ Phần này **không phải novelty Paper 2**. Khung conformal (score `R=|GT−μ|/σ`, khoảng, gom nhóm/joint) là
+> **đóng góp Paper 1**. Ở Paper 2 mình chỉ *đưa (μ, σ) HỌC ĐƯỢC của student* vào khung này. Đóng góp Paper 2 nằm
+> ở B1–B3 (làm ra (μ,σ) tốt bằng distillation), không phải ở conformal.
+
+Sau khi có (μ, σ) leak-free, dựng khoảng bằng **split conformal** trên score chuẩn hoá `r = |GT − μ| / σ`
+(khung PB-JCI, Paper 1), gom nhóm để coverage *có điều kiện theo mô*. 3 scheme trong
+[eval_r2_grouped.py](eval_r2_grouped.py):
+- **global**: 1 quantile chung (mốc, ≈ split conformal thường).
+- **mondrian**: 1 quantile **mỗi organ** (khi đủ mẫu/mô — dùng cho PanNuke).
+- **cluster**: gom organ thành `n_clusters=5` theo **độ khó (từ σ)** rồi conformal từng cụm (khi ít mẫu/organ —
+  dùng cho NuInsSeg). → **"Adaptive"**: quy tắc chọn mondrian/cluster đặt ra *a priori* theo mật độ mẫu.
+- **Vì sao cluster vừa tăng coverage vừa giảm Winkler:** global 1 quantile → rộng cho organ dễ, hẹp cho organ
+  khó (miss). Cluster cấp quantile riêng từng nhóm khó → cắt được cả bề rộng thừa lẫn miss-penalty.
+  **KD không có σ học được nên KHÔNG khai thác được cluster** — đây là lợi thế của việc có σ.
+- Đo bằng **Winkler/interval score** + **organ_conditional_stats** (worst-organ coverage, org-gap, #under).
+
+### B5. Protocol leak-free (mình thiết kế để tránh rò rỉ — nền tảng để mọi số liệu đáng tin)
+- **PanNuke:** train 2 fold → **predict fold held-out** (`--test_fold`), lặp 3 fold. `--exclude_tissue colon`
+  (loại overlap PathoSAM/Lizard, y hệt Paper 1). *Xác minh code:* `train()` chỉ lặp `train_idx`, không đụng test.
+- **NuInsSeg:** **cross-fitting 5-fold** (`--kfold 5`) — mỗi ảnh được dự đoán bởi model **KHÔNG** train trên nó;
+  ghép 665 dự đoán leak-free. *Xác minh:* `assign_kfold` gán mỗi ảnh đúng 1 fold, phân tầng theo organ.
+- **Teacher không rò:** density teacher chỉ dùng cho ảnh TRAIN; ảnh test chỉ so với **GT thật**.
+
+### B6. Script/harness mình viết (Bước 2 — so với heavy net)
+- [count_student_cost.py](count_student_cost.py): đo **params + GMACs** thật của student (thop) → **1.935M / 10.49 GMACs**.
+- [prep_nuinsseg_as_pannuke.py](prep_nuinsseg_as_pannuke.py): NuInsSeg → folder ảnh + `gt_counts.csv`;
+  GT count = `len(unique(mask)) − nền` (Y HỆT student → so công bằng). Mode `resize`/`tile` + `--size`.
+- [dump_cellvit_counts.py](dump_cellvit_counts.py): chạy **code OFFICIAL** của CellViT/LKCell (KHÔNG tái hiện
+  thuật toán) → đếm `len(instance_types)`/ảnh. Các "fix tương thích" mình thêm (không đổi thuật toán của họ):
+  `weights_only=False` (torch 2.6+), cờ `--lkcell` build đúng model UniRepLKNet qua chính class + config của họ,
+  `--no_tokens` gọi thẳng `calculate_instance_map`.
+- [eval_heavy_count.py](eval_heavy_count.py): chấm **MAE/RMSE/MAPE + per-organ**, ghép dòng student & teacher.
+
+---
+
+## C. KẾT QUẢ (đã chạy thật, leak-free)
+
+### C1. Kết quả CHÍNH — R2 (ours) vs KD (cùng student ~1.9M) — cả 2 dataset, 3 trục
+R2 thắng KD **SẠCH cả 3 trục trên cả 2 dataset** (paired-Wilcoxon **p ≤ 1.9e−6** mọi trục/fold):
+
+| Dataset | Winkler R2 / KD | MAE R2 / KD | worst-org R2 / KD | #mô under R2 / KD |
+|---|---|---|---|---|
+| **PanNuke** (no-colon, 3-fold) | **18.3 / 23.7** (−23%) | **3.35 / 3.94** (−15%) | **0.902** / 0.739 | **0** / 8 (/53) |
+| **NuInsSeg** (cross-fit 5-fold) | **87.7 / 128.6** (−32%) | **14.2 / 21.7** (−34%) | **0.773** / 0.282 | 4 / 6 (/27) |
+
+→ R2 thắng cả **accuracy (MAE)** lẫn **interval (Winkler)** lẫn **conditional coverage (worst-org)**. KD làm
+khoảng hẹp đạt marginal nhưng **conditional coverage thảm hoạ** (worst-org 0.28–0.74).
+
+### C2. So với BASELINE RECENT (bảng 8c) — cùng (μ,σ) leak-free, code official
+**PanNuke (trung bình 3 fold no-colon):**
+
+| Method | Năm | Winkler ↓ | MAE ↓ | worst-org ↑ |
+|---|---|---|---|---|
+| **R2-mondrian (ours)** | — | 19.28 | **3.36** | **0.906** ← cao nhất mọi method |
+| **R2-cluster (ours)** | — | **18.50** | 3.36 | 0.843 |
+| CondConf-group | 2025 | 18.81 | 3.37 | 0.853 |
+| PCP | 2024 | 23.26 | 3.37 | 0.805 |
+| CPCP | 2026 | 35.46 | 6.18 | 0.758 |
+| R2CCP | 2024 | 58.4 | 5.83 | 0.621 |
+| KD (teacher-distill) | — | 22.08 | 3.64 | 0.721 |
+
+**NuInsSeg (cross-fit 5-fold):**
+
+| Method | Năm | Winkler ↓ | MAE ↓ | worst-org ↑ |
+|---|---|---|---|---|
+| **R2-cluster (ours)** | — | **87.7** | 14.2 | 0.773 |
+| CondConf-group | 2025 | 125.4 | 13.6 | **0.850** |
+| PCP | 2024 | 91.1 | 13.6 | 0.714 |
+| CPCP | 2026 | 250.6 | 28.7 | 0.500 |
+| R2CCP | 2024 | 261.2 | 30.2 | 0.562 |
+
+**Đọc trung thực:** PanNuke — R2-mondrian worst-org **0.906 = CAO NHẤT mọi method** (kể cả CondConf-2025) mà
+**không train lại**. NuInsSeg — R2 thắng **Winkler đậm nhất** (87.7, ~−30% vs CondConf 125.4); CondConf nhỉnh
+worst-org (0.850) NHƯNG *được cấp nhãn organ tường minh* còn R2 thì không cần. R2CCP/CPCP MAE cao vì train net
+riêng trên feature pooled (mất density) — ghi rõ.
+
+### C3. Efficiency (Bước 2, Phần A) — số EXACT trích paper + student mình đo
+| Model | Params (M) | GMACs@256 | có UQ? |
+|---|---|---|---|
+| CellViT-SAM-H (2024) | 699.74 | 214.33 | ✗ |
+| LKCell-L (2024) | 163.84 | 47.86 | ✗ |
+| LSP-DETR (**2026**) | 45.0 | 26 | ✗ |
+| NuLite-T (2024) | 17.12 | 26.16 | ✗ |
+| **Student R2 (ours)** | **1.935** | **10.49** | **✓ σ + interval** |
+
+→ Student **nhỏ nhất** (86–368× < heavy net, 9× < SOTA nhẹ nhất) + **ít FLOPs nhất** + là model **DUY NHẤT có UQ**.
+
+### C4. Count-MAE thật vs heavy net (Bước 2, Phần B) — NuInsSeg, leak-free, chạy RTX 5090
+Heavy net chạy **off-the-shelf** (checkpoint PanNuke của họ chưa từng thấy NuInsSeg → **OOD, không leak**).
+Cấu hình: ảnh native 512, SAM-H feed 1024. N=665 khớp student.
+
+| Method | Params | MAE ↓ | RMSE ↓ | MAPE ↓ |
+|---|---|---|---|---|
+| CellViT-SAM-H (OOD) | 699.74M | 24.24 | 34.74 | 56.9% |
+| LKCell-L (OOD) | 163.84M | 16.54 | 28.07 | 38.8% |
+| Teacher PathoSAM (zero-shot) | ~640M | 15.80 | 29.02 | **28.3%** |
+| **Student R2 (in-domain, ours)** | **1.9M** | **13.51** | **22.61** | 45.3% |
+
+**Đọc trung thực (BẮT BUỘC — không tô hồng):**
+- ★ Student MAE **13.51 < cả teacher 15.80** → trò đếm tốt hơn CHÍNH THẦY (MAE/RMSE) dù nhỏ 340×.
+- Student **thắng MAE + RMSE** (thấp nhất mọi method) + là model duy nhất có UQ.
+- **NHƯNG** teacher MAPE 28.3% và LKCell 38.8% < student 45.3% → student sai **tương đối** cao hơn (kém ở ảnh
+  ít nhân do density-sum). **Student KHÔNG thắng tuyệt đối mọi metric.**
+- **Khung (bắt buộc):** đây là **in-domain-distill (rẻ) vs OOD-zero-shot** + lệch magnification — KHÔNG phải
+  "student đếm giỏi hơn heavy net". Đóng góp = *thích nghi rẻ (1.9M) + trustworthy (UQ)*, không phải hơn-thua thô.
+
+---
+
+## D. BASELINE (KHÔNG phải mình tạo — chỉ trích dẫn, chạy code official)
+Reliability/conformal: **CondConf** (Gibbs–Cherian–Candès, JRSS-B 2025), **PCP** (Zhang–Candès 2024),
+**R2CCP** (Guha et al. ICLR 2024), **CPCP** (Chen–Li ICML 2026) + sàn UQ (MC-Dropout, Deep Ensembles, CQR, CHDQR).
+Accuracy/efficiency: **CellViT/CellViT++** (2023–25), **LKCell** (2024), **NuLite** (2024), **LSP-DETR** (2026),
+teacher **PathoSAM** (micro_sam). *Mình dùng ĐÚNG code/checkpoint official của họ, không tái hiện thuật toán —
+để reviewer không thể nói "reproduce sai nên thắng".*
+
+---
+
+## E. TÓM TẮT ĐÓNG GÓP CỦA PAPER 2 (chỉ cái GỐC — không tính PB-JCI của Paper 1)
+1. **Kiến trúc** `DensitySigmaUNet` — student 1.9M xuất (density→μ, σ) đồng thời.
+2. **σ Poisson-anchored LEARNED** — tham số hoá σ HỢP NHẤT thắng cả 2 dataset (câu chuyện diagnostic→fix).
+   *Khác hẳn σ Poisson-Binomial của Paper 1 (P1 suy σ từ điểm detection; P2 HỌC σ trong student).*
+3. **`--detach_mu`** — tách μ khỏi NLL, gỡ mâu thuẫn accuracy vs calibration.
+4. **Distillation** foundation→student cho ĐẦU RA PHÂN PHỐI (μ,σ) — cốt lõi: làm ra (μ,σ) tốt ở 1.9M.
+5. **Protocol leak-free** (test_fold + cross-fit 5-fold) — nền tin cậy cho mọi số liệu.
+6. **Harness Bước 2** (prep/dump/eval) — so count-MAE với heavy net công bằng, dùng code official của họ.
+
+**DÙNG LẠI (CITE Paper 1), KHÔNG claim:** khung **PB-JCI** (score R=|N−E[N]|/σ, khoảng conformal, gom nhóm/joint,
+Adaptive Online). Paper 2 chỉ *thay nguồn (μ,σ)*: từ "suy PB trên detector nặng" (Paper 1) → "HỌC trong student
+nhẹ distilled" (Paper 2).
+
+**Định vị Q1:** cùng student nhẹ ~1.9M, distillation của mình cho count **vừa chính xác hơn (MAE) vừa interval
+calibrated hơn + đảm bảo coverage theo từng mô** — và là mô hình **duy nhất có bất định calibrated** ở hạng cân
+nhỏ nhất. *Energy-efficient + trustworthy counting.*

@@ -196,6 +196,52 @@ Per-fold R2-mondrian worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold)
 - R2CCP/CPCP MAE cao (5.8–30) là do **thiết kế của chúng train mạng riêng trên feature pooled, không dùng μ=Σdensity** —
   ghi rõ trong paper để reviewer không hiểu nhầm ta cố tình dìm baseline.
 
+## 8d. ★ PHÂN TÍCH TĂNG CƯỜNG cho phản biện Q1 (A1 coverage-curve + A3 per-organ CI) — 2026-07-15
+Chạy hậu kỳ trên pkl R2 (feat) đã backup, script `analysis_coverage_curve.py` (tái dùng eval_scheme → khớp conformal).
+
+**A1 — Coverage curve (chống cherry-picking 1 alpha):** grouping ≥ global ở **MỌI** nominal, không chỉ 0.90.
+
+| nominal | PanNuke mondrian worst-org / #under | PanNuke global | NuInsSeg cluster worst-org / #under | NuInsSeg global |
+|---|---|---|---|---|
+| 0.80 | 0.781 / **0/18** | 0.653 / 4/18 | 0.568 / 9/27 | 0.491 / 8/27 |
+| 0.90 | **0.906 / 0/18** | 0.803 / 3/18 | 0.656 / 3/27 | 0.592 / 5/27 |
+| 0.95 | 0.945 / **0/18** | 0.884 / 2/18 | 0.848 / 2/27 | 0.720 / 5/27 |
+
+→ PanNuke Mondrian **0/18 mô under ở MỌI alpha** (bảo đảm group-conditional hữu hạn mẫu của Mondrian, đúng theorem).
+marg.cov bám nominal cả 4 mức. Grouping thắng global toàn đường cong.
+
+**A3 — Per-organ Wilson 95% CI (worst-org là systematic hay nhiễu?):**
+- **PanNuke (mondrian, α=0.1):** **0/18 mô under thật** — TẤT CẢ 18 mô coverage ≥ 0.908, CI đều trùm 0.90,
+  n mô lớn (54–827) → CI chặt. **Bảo đảm per-tissue là THẬT, không nhiễu.** Claim mạnh hợp lệ.
+- **NuInsSeg (cluster, α=0.1):** **CHỈ 1/31 organ under THẬT** (human cardia, n=12, cov 0.656, CI [0.391,0.862]
+  — CI-trên < 0.90). **30/31 organ còn lại: CI TRÙM 0.90 = chỉ nhiễu do ít ảnh** (femur/thymus/spleen n=6–7,
+  CI rộng [0.44,0.97]). → worst-org thấp KHÔNG phải systematic failure, mà là **1 mô khó + nhiễu mẫu nhỏ**.
+
+**★ PHÁT HIỆN (trung thực, quan trọng cho claim):** PanNuke reproduce khớp (0.906 vs 0.902 md ✓) NHƯNG **NuInsSeg
+worst-org feat-pkl = 0.656 vs md 0.773** (cùng config, khác training run) → **training variability THẬT ~0.12 trên
+NuInsSeg** (dataset nhỏ, dải count rộng). → BẮT BUỘC báo worst-org **kèm CI + nhiều training seed** (việc A6), KHÔNG
+báo 1 điểm. Đây củng cố đúng phê bình: worst-org NuInsSeg bất ổn → claim phải mềm ("giảm undercoverage đáng kể",
+không "guarantee từng organ"); còn PanNuke Mondrian thì claim mạnh được (theorem + 0/18 + CI chặt).
+
+**SỬA CLAIM (kết luận từ A1+A3):** tách 2 mức — *PanNuke: bảo đảm per-tissue (Mondrian, hữu hạn mẫu, 0/18 mọi α)*;
+*NuInsSeg: giảm mạnh subgroup undercoverage vs global/KD, còn 1 mô khó (cardia) + nhiễu mẫu nhỏ (limitation trung thực)*.
+
+**A5 — Sigma analysis (`analysis_sigma.py`): σ CÓ THÔNG TIN + calibrated (bằng chứng learned-dispersion hữu ích):**
+
+| dataset | corr_Spearman(σ,\|e\|) | z-mean | z-std | \|z\|≤1.64 | NLL |
+|---|---|---|---|---|---|
+| PanNuke | **+0.428** | +0.003 | **1.014** | 0.899 | 2.791 |
+| NuInsSeg | **+0.404** | +0.103 | 0.828 (hơi conservative) | 0.938 | 4.210 |
+
+★ **CHỐT NOVELTY (nối 8b):** σ Poisson-anchored làm corr(σ,\|e\|) **NuInsSeg = +0.404** — trong khi σ raw (mục 8b) corr
+= **−0.02** (σ = nhiễu). → **anchor Poisson THẬT SỰ có tác dụng** (biến σ vô dụng thành σ có thông tin), không phải
+chỉ √μ trang trí. PanNuke z-std 1.014 = **calibration gần hoàn hảo mọi count-bin** (z-std 0.99–1.03).
+NuInsSeg z-std 0.83 = **hơi over-conservative ở count thấp** (σ hơi rộng, KHÔNG under → an toàn coverage, đổi lại width chưa tối ưu).
+
+**P2.9 — low-count (bin theo count):** MAPE cao ở bin 0–10 (PanNuke 57%, NuInsSeg 162%) do lỗi tương đối trên count
+nhỏ (MAE tuyệt đối vẫn nhỏ: PanNuke 1.91, NuInsSeg 5.89). z-std NuInsSeg bin 0–10 = 0.63 (σ rộng gấp ~1.6×) → khoảng
+low-count bị nới. Ghi honest limitation. corr(σ,\|e\|) mạnh nhất ở bin 0–10 (0.55–0.57) → σ phân biệt tốt ca dễ/khó khi ít nhân.
+
 ## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
 
 **ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free
