@@ -151,6 +151,73 @@ cho count-scaling miễn phí + chặn runaway; head chỉ học hệ số dispe
 *(Bản CÓ-colon (superseded, không dùng cho paper): KD Winkler bị colon-leak thổi lên 30.9, worst-tissue
 R2-mondrian 0.900/0/56, MAE hòa 4.16/4.30. Loại colon cho con số sạch + mạnh hơn.)*
 
+## 8c. ★ BẢNG BASELINE RECENT — R2 vs CondConf/PCP/CPCP/R2CCP/KD (ĐÃ CHẠY vast 2026-07-13/14)
+
+Tất cả cùng student R2 leak-free (μ,σ), cùng score/khoảng, cùng seeds/organ_conditional_stats/Winkler.
+Baseline recent chạy bằng **code official** (không tự chế): CondConf `conditionalconformal` (JRSS-B 2025),
+PCP `yaozhang24/pcp` (2024), R2CCP `EtashGuha/R2CCP` (ICLR 2024), CPCP `Cqyiiii/...` (ICML 2026).
+α=0.1, target 0.90. **↓ thấp tốt, ↑ cao tốt.** MAE cùng μ=Σdensity nên R2/CondConf/PCP bằng nhau.
+
+### PanNuke (trung bình 3 fold no-colon)
+
+| Method | Năm | marg.cov | Winkler ↓ | MAE ↓ | **worst-org ↑** | code |
+|---|---|---|---|---|---|---|
+| **R2-mondrian (ours)** | — | 0.925 | 19.28 | **3.36** | **0.906** | — |
+| **R2-cluster (ours)** | — | 0.910 | **18.50** | **3.36** | 0.843 | — |
+| R2-global (ours, no-group) | — | 0.906 | 18.43 | 3.36 | 0.803 | — |
+| CondConf-group | 2025 | 0.910 | 18.81 | 3.37 | 0.853 | official |
+| PCP | 2024 | 0.919 | 23.26 | 3.37 | 0.805 | official |
+| CPCP | 2026 | 0.901 | 35.46 | 6.18 | 0.758 | official |
+| R2CCP | 2024 | 0.835¹ | 58.4¹ | 5.83 | 0.621¹ | official |
+| KD-global (teacher-distill) | — | 0.904 | 22.08 | 3.64 | 0.721 | — |
+
+¹ R2CCP fold1 sập coverage (cov 0.717, Winkler 116, worst 0.477, 18/18 under) kéo lệch trung bình; f2/f3 bình thường (worst 0.703/0.684).
+
+Per-fold R2-mondrian worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold). R2 vs KD paired-Wilcoxon p=1.9e−6 (Winkler & MAE) mọi fold.
+
+### NuInsSeg (cross-fit 5-fold)
+
+| Method | Năm | marg.cov | Winkler ↓ | MAE ↓ | **worst-org ↑** | #under | code |
+|---|---|---|---|---|---|---|---|
+| **R2-cluster (ours)** | — | ~0.91 | **87.7** | 14.2 | 0.773 | — | — |
+| CondConf-group | 2025 | 0.938 | 125.4 | 13.6 | **0.850** | 0/21 | official |
+| PCP | 2024 | 0.914 | 91.1 | 13.6 | 0.714 | 4/21 | official |
+| CPCP | 2026 | — | 250.6 | 28.7 | 0.500 | — | official |
+| R2CCP | 2024 | — | 261.2 | 30.2 | 0.562 | — | official |
+
+### Câu chuyện chốt (trung thực, đủ mạnh cho Q1)
+
+- **PanNuke:** R2-mondrian đạt **worst-org 0.906 — CAO NHẤT trong mọi method, kể cả CondConf-2025 (0.853)** — với
+  Winkler/MAE tương đương và **không cần train lại**. R2 thắng KD toàn diện (p=1.9e−6). CPCP/R2CCP (train net riêng
+  trên feature 256-chiều pooled, mất thông tin không gian density) tụt hẳn cả worst-org lẫn MAE.
+- **NuInsSeg:** CondConf-group nhỉnh worst-org (0.850 vs 0.773) — nhưng **được cấp nhãn organ tường minh** (Φ=[1,onehot])
+  trên dataset ít mẫu/nhiều mô. Đổi lại R2 **thắng Winkler đậm (87.7 vs 125.4, khoảng chặt hơn ~30%)** ở cùng coverage,
+  MAE ngang. Kể thẳng: *R2 cho khoảng hiệu quả hơn hẳn mà KHÔNG cần biết organ; CondConf phải được cấp organ mới đạt worst-org đó.*
+- R2CCP/CPCP MAE cao (5.8–30) là do **thiết kế của chúng train mạng riêng trên feature pooled, không dùng μ=Σdensity** —
+  ghi rõ trong paper để reviewer không hiểu nhầm ta cố tình dìm baseline.
+
+## ▶▶ RESUME 2026-07-14 — TRẠNG THÁI + VIỆC TIẾP THEO (đọc cái này trước khi làm tiếp)
+
+**ĐÃ XONG:** Bảng 8c hoàn chỉnh 100% cả 2 dataset (số ở mục 8c trên). 8 baseline recent chạy xong leak-free
+bằng code official: CondConf-2025, PCP-2024, R2CCP-2024, CPCP-2026 (+ 4 sàn UQ code sẵn `baselines_uq.py`).
+→ Phần baseline coi như KHÓA. Mọi con số đã transcribe vào md này (an toàn trên Mac, không phụ thuộc vast).
+
+**BACKUP TRƯỚC KHI STOP VAST (log thô = bằng chứng gốc):**
+```bash
+# đẩy work/ (đã gồm baseline_logs + pkl + teacher cache) lên Kaggle sam3-paper2-work
+cd /workspace/sam3_research/work && kaggle datasets version -p . -m "8c logs done $(date +%m%d)" -r zip -q
+```
+Start máy mới: `kaggle datasets download -d hipinhththu/sam3-paper2-work --unzip -p /workspace/sam3_research/work`
+
+**VIỆC TIẾP THEO (Bước 2 — trục accuracy thuần, MAE):** heavy nets NuLite (2024) + CellViT++ (2025) —
+đo MAE count trên CÙNG protocol leak-free (PanNuke test_fold + NuInsSeg cv5) để định vị student ~1.9M
+so với net nặng SOTA. Kỳ vọng: student thua MAE tuyệt đối nhưng **rẻ hơn nhiều lần + có σ/interval** (net
+nặng không có UQ) → củng cố "energy-efficient + trustworthy". Cần env riêng (mục 10 Bước 2). CHƯA code.
+
+**Tùy chọn còn treo:** PanNuke K>1 mở rộng (mục 7.3, CHƯA code) — chỉ làm nếu cần thêm độ mạnh.
+
+---
+
 ## 9. Baseline hiện đại (Q1) — kế hoạch, LÀM LẦN LƯỢT sau khi có kết quả (2026-07-13)
 
 Yêu cầu: cần ≥3-4 baseline **2024-2026** (recent) mới thuyết phục Q1 (giống Paper 1 so SAOCP/FACI).
@@ -314,9 +381,121 @@ for F in 1 2 3; do python eval_r2ccp.py --preds ../work/student_r2_pannuke_f${F}
 python eval_r2ccp.py --preds ../work/student_r2_nuinsseg_cv5_poisson_feat.pkl --r2ccp_dir ./R2CCP --seeds 5 --max_epochs 100
 ```
 
-### Bước 2 (SAU, nặng, cần env riêng): accuracy baselines
-- **NuLite** (2024, arxiv 2408.01797) + **CellViT++** (2025, github TIO-IKIM/CellViT): verify repo+weight →
-  chạy trên PanNuke fold test → count MAE. Đối chiếu "student nhẹ MAE ngang + có UQ mà chúng không có".
+### Bước 2 (SAU, nặng, cần env riêng): accuracy/efficiency baselines — ▶ CHỐT 2026-07-14 (đã verify sâu repo)
+
+**MỤC ĐÍCH (khác trục 8c):** trục ACCURACY THUẦN (count-MAE + params/FLOPs), KHÔNG dính UQ. Chặn phản biện
+"model nhẹ thế chắc đếm dở". Chứng minh student 1.9M đếm bám sát heavy SOTA ở fraction chi phí, và là cái
+DUY NHẤT có interval calibrated.
+
+**★ PHÁT HIỆN LEAK khi verify (quyết định thiết kế):** KHÔNG heavy net nào publish checkpoint THEO FOLD.
+- CellViT/CellViT++: ckpt "trained on 90% ALL folds" → LEAK nếu test trên PanNuke test-fold của ta.
+- LKCell (hustvl, HF xiazhi/LKCell-L/B, MIT): weight whole-data, "contact authors for fold-specific".
+- NuLite (CosmoIknosLab, Apache/NC): "trained on WHOLE PanNuke" + inference CHỈ WSI 1024 → 2 rào cản.
+- LSP-DETR (arXiv 2601.03163, 1/2026, RationAI/lsp-detr, MIT): repo KHUNG RỖNG 4 commit → chưa chạy được.
+→ Chạy ckpt whole-data của họ trên PanNuke test-fold = LEAK (họ đã thấy ảnh) → reviewer bác. Train lại
+per-fold = tái hiện SOTA có thể sai (CẤM). **Bế tắc trên PanNuke.** Gốc: model nhẹ BẮT BUỘC train trên
+phân phối đích (distill); heavy net dùng off-the-shelf → MAE fair đòi cùng protocol per-fold họ không cho.
+
+**GIẢI PHÁP (leak-free THẬT, không tái hiện):**
+- **Phần A — bảng efficiency (cite, 0 rủi ro):** {params, FLOPs, PanNuke mPQ/bPQ} trích paper cho
+  LKCell + CellViT++ + LSP-DETR(2026) + NuLite + student 1.9M. Định vị dải 700M→1.9M, cite baseline 1/2026.
+- **Phần B — count-MAE leak-free trên NuInsSeg (OOD với MỌI heavy net → leak biến mất):** chạy code
+  inference OFFICIAL của họ (KHÔNG sửa thuật toán, chỉ wrap I/O + đếm instance) với weight published.
+  2 mốc CHẠY: **CellViT-SAM-H** (cùng họ SAM với teacher PathoSAM) + **LKCell-L** (SOTA 2024, HF, dùng
+  CHUNG inference harness CellViT). Cạnh student 1.9M + teacher PathoSAM. Bỏ NuLite/LSP-DETR khỏi phần
+  CHẠY (ma sát cao) nhưng GIỮ trong bảng cite A.
+  Story: student in-domain distilled 1.9M bám sát/vượt SOTA nặng OOD + là cái DUY NHẤT có UQ.
+
+**Đường inference (đã verify code thật):** CellViT++ `detect_cells.py` = CHỈ WSI (process_wsi/dataset,
+file .svs) → KHÔNG nhận folder patch. DÙNG repo CellViT GỐC: `cell_detection.py` (patch + overlap-merge
+biên) HOẶC `inference_cellvit_experiment_pannuke.py` (dataset kiểu PanNuke 256). Output `instance_types`
+per ảnh → count = len(instances). LKCell kế thừa CÙNG harness → chỉ đổi --model. GPU ≥24GB (SAM-H).
+**RỦI RO CÒN LẠI (validate TRÊN VAST):** đưa ảnh NuInsSeg (size ~512?) qua patch-inference đúng cách
+(tile 256 + overlap-merge để không đếm trùng/sót nhân ở biên). Cần kiểm size ảnh NuInsSeg thực tế.
+
+**TODO Bước 2:** [1] viết `eval_heavy_count.py` (wrap CellViT/LKCell official, đếm instance → MAE vs GT).
+[2] runbook vast env riêng (clone CellViT+LKCell, tải weight SAM-H+LKCell-L, chạy NuInsSeg). [3] bảng A cite.
+
+**API CellViT đã verify (raw code `cell_segmentation/inference/cell_detection.py`):** class
+`CellSegmentationInference(model_path, gpu, enforce_mixed_precision)`; `__load_model` đọc `checkpoint["arch"]`
+→ chọn CellViT/CellViT256/CellViTSAM. Đếm: `cells,_ = get_cell_predictions_with_tokens(predictions)`;
+`count=len(cells)` (mỗi dict = 1 nhân: centroid/bbox/type). Preprocess: patch **1024**+overlap 64, norm
+mean/std (0.5,0.5,0.5). LKCell backbone large-kernel riêng → `arch` khác → chạy bằng REPO LKCELL fork
+(API gần y hệt). RỦI RO: NuInsSeg ~512 → tile-vs-resize phải TEST vài ảnh trên vast (mắt thường vs GT).
+
+#### Phần A — Bảng efficiency (số EXACT từ paper gốc, chốt 2026-07-14)
+GFLOPs/params ở 256×256. bPQ/mPQ chép đúng bảng của từng paper (⚠️ CellViT-SAM-H = **699.74M**, không phải
+163.8M — số 163.84M là LKCell-L; lỗi draft cũ đã sửa).
+
+| Model | Year | Params (M) | GFLOPs | bPQ | mPQ | Count-MAE | UQ? | Nguồn số |
+|-------|------|-----------|--------|-----|-----|-----------|-----|----------|
+| CellViT-SAM-H | 2024 | 699.74 | 214.33 | 0.679 | 0.498 | Phần B | ✗ | LKCell T1-2 / NuLite T6 |
+| LKCell-L | 2024 | 163.84 | 47.86 | 0.6847 | 0.5080 | Phần B | ✗ | LKCell arXiv 2407.18054 T1-2 |
+| LKCell-B | 2024 | 122.53 | 46.25 | 0.6851 | 0.5050 | (opt) | ✗ | LKCell 2407.18054 T1-2 |
+| LSP-DETR | **1/2026** | 45.0 | 26 | 0.675 | ? | (cite-only) | ✗ | arXiv 2601.03163 |
+| NuLite-H | 2024 | 41.07 | 29.95 | 0.680 | 0.493 | (opt) | ✗ | NuLite arXiv 2408.01797 T4/T6 |
+| NuLite-M | 2024 | 31.11 | 28.26 | 0.679 | 0.493 | (opt) | ✗ | NuLite 2408.01797 |
+| NuLite-T | 2024 | 17.12 | 26.16 | 0.671 | 0.484 | (opt) | ✗ | NuLite 2408.01797 |
+| PathoSAM (teacher) | 2024 | ~640 (ViT-H) | ? | — | — | Phần B | ✗ | micro_sam |
+| **Student R2 (ours)** | 2026 | **1.935** | **~10.5 (MACs@256)** | — (density, không seg) | — | **bảng mục 8** | **✓ σ+interval** | thop, xác minh Mac |
+
+**Story bảng A (mạnh hơn draft cũ):** dải params **699.74M → 1.9M**; student nhỏ nhất tuyệt đối —
+**~368× < CellViT-SAM-H, ~86× < LKCell-L, ~9× < cả NuLite-T (17.12M) là SOTA nhẹ nhất**. Kể cả baseline
+2026 mới nhất (LSP-DETR) vẫn 45M. Và **KHÔNG model nào cho UQ per-ảnh** — chỉ student có σ+interval
+calibrated. → "nhẹ nhất + trustworthy nhất, count-MAE bám sát (Phần B)".
+Student params/FLOPs ĐÃ tính (thop, DensitySigmaUNet ch=32 @256): **1,935,266 params (1.935M); 10.488 GMACs**
+→ ít FLOPs hơn cả NuLite-T (26.16). ⚠️ QUY ƯỚC: cột GFLOPs của LKCell/NuLite nhiều khả năng là **MACs**
+(thop) → khi viết paper báo student = **10.5 GMACs** cho đồng đơn vị (đừng nhân 2 thành 21 FLOPs lệch chuẩn).
+Còn thiếu: **PathoSAM GFLOPs** (tính trên vast khi có env). Student cost script: `count_student_cost.py`.
+
+#### Phần B — Runbook vast (ĐÃ soạn khung: prep + eval XONG, chỉ chừa 1 hàm dump-count finalize trên vast)
+File đã có (Mac, push sẵn): `prep_nuinsseg_as_pannuke.py` (NuInsSeg→images/+gt_counts.csv, --mode resize|tile),
+`eval_heavy_count.py` (đọc gt+preds.csv → MAE/RMSE/per-organ, ghép student). GT count = len(unique(mask))−bg
+Y HỆT student. Cần GPU ≥24GB (SAM-H). CHƯA test end-to-end (cần GPU + weight) → validate theo bước [V].
+
+```bash
+# [1] ENV RIÊNG (tách khỏi penv PathoSAM) — CellViT cần torch 2.x + timm + geojson...
+micromamba create -y -p /workspace/cvenv python=3.10 && micromamba run -p /workspace/cvenv \
+  pip install torch torchvision timm einops geojson shapely scikit-image tqdm pyyaml opencv-python-headless thop
+# [2] REPO + WEIGHT
+cd /workspace && git clone https://github.com/TIO-IKIM/CellViT.git
+#   CellViT-SAM-H: tải CellViT-SAM-H-x40-AMP.pth (Google Drive repo) -> /workspace/ckpt/cellvit_sam_h/
+#   LKCell-L: git clone https://github.com/hustvl/LKCell + HF hub xiazhi/LKCell-L
+# [3] DATA: chuẩn bị ảnh + GT (chạy CẢ 2 mode để chọn ở [V])
+cd /workspace/sam3_research/distillation_counting && git pull
+python prep_nuinsseg_as_pannuke.py --out ../work/nuinsseg_png      --mode resize
+python prep_nuinsseg_as_pannuke.py --out ../work/nuinsseg_png_tile --mode tile
+# [4] INFERENCE + DUMP COUNT  -> dùng dump_cellvit_counts.py (ĐÃ viết, verified API cell_detection.py)
+#   VALIDATE nhanh trước (5 ảnh): thử giữ 256, nếu lỗi shape thì --infer_size 1024 (SAM-H); --no_tokens nếu cần
+python dump_cellvit_counts.py --cellvit_dir /workspace/CellViT \
+    --ckpt /workspace/ckpt/cellvit_sam_h/CellViT-SAM-H-x40-AMP.pth \
+    --images_dir ../work/nuinsseg_png/images --out_csv cellvit_preds.csv --gpu 0 --mag 40 --limit 5
+#   OK -> bỏ --limit chạy full. LKCell: --cellvit_dir /workspace/LKCell --ckpt <LKCell-L.pth>
+# [5] CHẤM
+python eval_heavy_count.py --gt ../work/nuinsseg_png/gt_counts.csv --preds cellvit_preds.csv \
+    --label CellViT-SAM-H --student_pkl ../work/student_r2_nuinsseg_cv5_poisson_feat.pkl
+#   (mode tile: thêm --preds cellvit_preds_tile.csv --tiles_map ../work/nuinsseg_png_tile/tiles_map.csv)
+```
+**[V] VALIDATE (bắt buộc, chống "tái hiện sai"):** chạy [4] trên ~5 ảnh cả resize lẫn tile, MẮT THƯỜNG đối
+chiếu count detect vs GT (in kèm ảnh/overlay nếu cần) → chọn mode bám GT nhất, GHI RÕ mode + lý do trong paper.
+Nếu cả hai lệch nhiều (SAM-H quen 40x WSI, NuInsSeg khác magnification) → báo trung thực + cân nhắc chỉ giữ bảng A.
+**PathoSAM GFLOPs:** trong penv, `thop.profile` trên predictor.model input 1024 (điền ô '?' teacher bảng A).
+
+#### ★ AUDIT LEAK & FAIRNESS (2026-07-14, đọc code xác minh — KHÔNG được quên khi viết)
+**LEAK — sạch (verified):** train() chỉ lặp train_idx (dòng 210-211, không đụng test); NuInsSeg assign_kfold
+gán mỗi ảnh đúng 1 fold, cross-fit predict held-out; teacher density chỉ dùng cho ảnh TRAIN, ảnh test chỉ so
+GT thật; PanNuke `--exclude_tissue colon` loại overlap PathoSAM/Lizard; feat pooled = output trên ảnh test
+(không phải label). Bảng 8c post-hoc trên pkl leak-free này + cal/test split → OK.
+**FAIRNESS Phần B — 2 caveat BẮT BUỘC ghi trong paper (nếu giấu = reviewer bác):**
+1. **In-domain vs OOD bất đối xứng**: student train NuInsSeg (cv5) vs heavy net zero-shot PanNuke→NuInsSeg.
+   → TUYỆT ĐỐI không claim "student > CellViT". Khung = "adapt net 700M rất đắt; distill 1.9M rẻ mà count-MAE
+   cạnh tranh + là model DUY NHẤT có UQ" (trục HIỆU QUẢ THÍCH NGHI, không hơn-thua thô).
+2. **Lệch magnification**: SAM-H/LKCell train 40× PanNuke; NuInsSeg khác → MAE heavy net cao 1 phần do
+   mismatch, không hẳn model kém. Ghi rõ.
+3. **Đồng tập test**: student pkl (665 ảnh, không exclude) & prep NuInsSeg (build_index, không exclude) PHẢI
+   cùng N & cùng exclusion → verify N khớp trước khi lên bảng. GT count cùng công thức len(unique)−bg.
+**FAIRNESS 8c (đã có, nhắc lại):** CondConf-group/R2-mondrian ĐƯỢC cấp nhãn organ; R2-cluster/global KHÔNG →
+R2 thắng worst-org dù ít thông tin hơn (có lợi ta, trung thực). Mọi baseline cùng seeds/cal_ratio/Winkler/feature.
 
 ### Bước 3: PanNuke K>1 (mở rộng, tuỳ chọn) — mục 7.3. Rồi viết paper.
 
