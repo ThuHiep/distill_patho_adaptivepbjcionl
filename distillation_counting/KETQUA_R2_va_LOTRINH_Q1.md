@@ -497,6 +497,21 @@ GT thật; PanNuke `--exclude_tissue colon` loại overlap PathoSAM/Lizard; feat
 **FAIRNESS 8c (đã có, nhắc lại):** CondConf-group/R2-mondrian ĐƯỢC cấp nhãn organ; R2-cluster/global KHÔNG →
 R2 thắng worst-org dù ít thông tin hơn (có lợi ta, trung thực). Mọi baseline cùng seeds/cal_ratio/Winkler/feature.
 
+#### ★ KẾT QUẢ Phần B — count-MAE NuInsSeg (CHẠY THẬT vast 2026-07-14, RTX 5090)
+Cấu hình chốt sau validate: prep native **512** (không thu nhỏ, ảnh gốc NuInsSeg=512×512) + feed SAM-H **--infer_size 1024**
+(native res công bằng; validate 5 ảnh: 256 ratio 0.66 → 512+1024 ratio 0.77, native tốt hơn). N=665 khớp student pkl.
+
+| Method | Params | MAE | RMSE | MAPE | worst-org MAE |
+|--------|--------|-----|------|------|---------------|
+| CellViT-SAM-H (OOD, off-the-shelf) | 699.74M | 24.24 | 34.74 | 56.9% | mouse femur 129.0 |
+| **Student R2 (in-domain distill, ours)** | **1.9M** | **13.51** | 22.61 | 45.3% | mouse spleen 105.0 |
+
+**Đọc:** student MAE thấp hơn ~44% dù nhỏ hơn 368×. CellViT undercount (pred/gt~0.65-0.77, MAPE 57%) — BÁM GT
+(đơn điệu) nhưng hụt hệ thống. **KHUNG TRUNG THỰC (BẮT BUỘC):** đây KHÔNG phải "student giỏi đếm hơn CellViT" —
+là in-domain-distill (rẻ) vs OOD-zero-shot + lệch magnification (NuInsSeg≠40× PanNuke). Contribution = "distill
+1.9M rẻ trên domain đích cho count-MAE tốt hơn + UQ calibrated mà heavy net off-the-shelf KHÔNG có" (giá trị THÍCH
+NGHI RẺ, không hơn-thua thô). TODO: chạy LKCell-L (mốc heavy thứ 2) + teacher PathoSAM count (reference) + PathoSAM GFLOPs.
+
 ### Bước 3: PanNuke K>1 (mở rộng, tuỳ chọn) — mục 7.3. Rồi viết paper.
 
 ## 7. ▶ (CŨ, đã xong) resume PanNuke dataset 2

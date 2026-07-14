@@ -41,6 +41,10 @@ def main():
 
     sys.path.insert(0, os.path.abspath(args.cellvit_dir))
     import torch
+    # Checkpoint OFFICIAL (LKCell/CellViT) chứa numpy globals -> torch>=2.6 mặc định weights_only=True fail.
+    # Ta TIN checkpoint (repo chính thức) -> ép weights_only=False. Chỉ đổi CÁCH NẠP, không đổi thuật toán.
+    _orig_load = torch.load
+    torch.load = lambda *a, **k: _orig_load(*a, **{**k, "weights_only": False})
     from cell_segmentation.inference.cell_detection import CellSegmentationInference
 
     inf = CellSegmentationInference(model_path=args.ckpt, gpu=args.gpu)  # tự load model + transforms
