@@ -241,8 +241,45 @@ conformal/Winkler/organ_conditional_stats. Chấm: (μ,σ)→`eval_r2_grouped`, 
 - NHƯNG R2 **thua nhẹ Winkler/MAE** trước CQR/CHDQR/Ensemble (~1–1.5 Winkler, ~0.2 MAE). MC-Dropout kém nhất Winkler.
 - ⇒ Trên regime count-hẹp, R2 = **tie-best reliability (worst-org) + cheapest compute**, KHÔNG thắng tuyệt đối.
   Kể thẳng: quantile-regression (CQR/CHDQR) học tốt khi count thấp/đều → cạnh tranh sòng phẳng ở đây.
-- **NuInsSeg (regime count-RỘNG 1→370) đang chạy** — đây là chỗ R2 σ Poisson-anchored được thiết kế để bứt (raw-σ
-  từng SẬP ở dải rộng, xem mục 8b). Chờ số cluster để chốt story: R2 mạnh ĐỀU cả 2 regime với 1 model rẻ, hay chỉ tie.
+**NuInsSeg (cluster, cross-fit 5-fold) — ĐÃ CHẠY 2026-07-16:**
+
+| Method | Winkler ↓ | MAE ↓ | worst-org ↑ | compute |
+|---|---|---|---|---|
+| **R2 (ours)** | 87.7 | 14.2 | 0.773 | **1 model** |
+| Deep Ensemble M=3 | **79.0** | **12.0** | 0.760 | 3× train |
+| CQR | 88.6 | 15.0 | 0.808 | quantile head |
+| CHDQR | 74.7 | 13.6 | 0.689 | quantile head |
+| MC-Dropout | 152.0 | 17.5 | 0.806 | 30× forward |
+
+**★ ĐỌC TRUNG THỰC NUINSSEG (KHÔNG tô hồng — kết quả LẬT kỳ vọng ban đầu):**
+1. **R2 KHÔNG trội tuyệt đối.** Ensemble tốt hơn Winkler+MAE; CQR nhỉnh worst-org; R2 nằm **giữa nhóm**. CQR
+   KHÔNG "sập" ở dải count rộng như mình dự đoán ban đầu — quantile regression vẫn ổn.
+2. **NuInsSeg có nhiễu training ~0.12 worst-org** (A3/A6: feat-pkl 0.656 vs md 0.773). ⇒ worst-org R2 0.773 /
+   Ens 0.760 / CQR 0.808 / MC 0.806 **NẰM TRONG nhiễu của nhau** → KHÔNG kết luận được R2 >/< mấy cái này từ 1 run.
+3. **Tín hiệu CHẮC (ngoài nhiễu):** (a) **MC-Dropout thua rõ** (Winkler 152 ≫ mọi method) → epistemic-only UQ
+   kém hẳn; (b) **R2 rẻ nhất** (1 forward, 1.9M) mà **ngang tầm** Ensemble (3×) / CQR-CHDQR (quantile head);
+   (c) trên **PanNuke (lớn, ổn định)** R2 worst-org 0.906 = tie-cao-nhất.
+
+### ⇒ ĐIỀU CHỈNH STORY Q1 (chốt sau khi có số thật cả 2 dataset)
+- ❌ **BỎ claim:** *"R2 thắng mọi UQ baseline"* — số liệu KHÔNG ủng hộ (Ensemble/CQR cạnh tranh sòng phẳng).
+- ✅ **Claim MỚI (trung thực + vẫn Q1):** *"R2 đạt reliability (worst-org / interval) **NGANG TẦM các UQ hiện đại**
+  (Deep Ensemble 2017, CQR 2019, CHDQR 2024) nhưng ở **chi phí distillation-scale**: 1 model 1.9M, 1 forward pass
+  — trong khi epistemic UQ kinh điển (MC-Dropout) **thua rõ**."* Đóng góp = **modern-UQ-level trustworthiness ở
+  giá rẻ nhất trong hạng cân nhẹ**, KHÔNG phải hơn-thua thô.
+- Trục **efficiency (Phần A/C3)** + **cross-dataset transfer (8c-bis)** + **worst-org PanNuke cao nhất** vẫn là
+  3 chân trụ mạnh; UQ floor giờ đóng vai *"đã so với UQ hiện đại, ngang tầm mà rẻ hơn nhiều"* (bịt lỗ reviewer).
+
+### HƯỚNG TIẾP THEO (đề xuất, chưa chạy — quyết định khi khoẻ)
+1. **(compute) Multi-seed UQ floor để tách nhiễu NuInsSeg** — nếu muốn so CHẶT (claim "≥ Ensemble/CQR" có ý nghĩa
+   thống kê) thì cần 3 seed × 4 method × NuInsSeg (PanNuke đã đủ ổn). ~1h. Rủi ro: có thể vẫn "ngang" → giữ nguyên
+   framing "ngang tầm + rẻ". **Cân nhắc: framing "ngang tầm + rẻ nhất" đã đủ mạnh & AN TOÀN → có thể BỎ QUA multi-seed.**
+2. **(viết, 0 compute) Đóng khung lại đóng góp** quanh 3 trụ: efficiency (nhỏ nhất 86–368×) + cross-dataset transfer
+   (conditional coverage generalize) + reliability ngang-tầm-UQ-hiện-đại-mà-rẻ. Đây là story Q1 trung thực, đã đủ số.
+3. **(viết, 0 compute) #5 mệnh đề lý thuyết detach_mu** — vẫn nên có, nâng hạng method paper.
+4. **A2/A6 PanNuke (#3)** — còn lại trong RUN_LIST, xác nhận Poisson-anchor giữ trên PanNuke (đối xứng NuInsSeg).
+5. **Nhấn mạnh MC-Dropout thua rõ** như bằng chứng "learned distributional > epistemic-sampling ở count regression".
+
+
 
 ## 8d. ★ PHÂN TÍCH TĂNG CƯỜNG cho phản biện Q1 (A1 coverage-curve + A3 per-organ CI) — 2026-07-15
 Chạy hậu kỳ trên pkl R2 (feat) đã backup, script `analysis_coverage_curve.py` (tái dùng eval_scheme → khớp conformal).
