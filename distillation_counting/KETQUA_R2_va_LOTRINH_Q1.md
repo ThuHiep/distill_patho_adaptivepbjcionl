@@ -222,6 +222,28 @@ Chi tiết NuInsSeg→PanNuke: global worst 0.700/Winkler 101.6 → **mondrian w
   là use-case chính; transfer chứng minh (μ,σ) generalize chứ không thay thế in-domain.
 - Marginal coverage luôn ~0.90 (đúng lý thuyết split conformal ở target).
 
+## 8c-ter. ★ UQ FLOOR (số THẬT, lần đầu — trước đây mới smoke-test) — 2026-07-16 (ĐÃ CHẠY vast)
+`baselines_uq.py` (mcdropout/ensemble/cqr/chdqr) trên CÙNG student 1.9M + CÙNG protocol leak-free + CÙNG
+conformal/Winkler/organ_conditional_stats. Chấm: (μ,σ)→`eval_r2_grouped`, quantile→`eval_cqr_grouped`.
+
+**PanNuke (mondrian, trung bình 3 fold no-colon):**
+
+| Method | Winkler ↓ | MAE ↓ | worst-org ↑ | compute |
+|---|---|---|---|---|
+| **R2 (ours)** | 19.28 | 3.36 | **0.906** ← cao nhất | **1 model** |
+| CHDQR (2024) | **17.50** | 3.15 | 0.897 | quantile head |
+| Deep Ensemble M=3 (2017) | 17.73 | **3.13** | 0.901 | **3× train** |
+| CQR (2019) | 18.07 | 3.21 | 0.904 | quantile head |
+| MC-Dropout (2016) | 22.76 | 3.38 | 0.901 | 30× forward |
+
+**ĐỌC TRUNG THỰC (PanNuke = regime count-HẸP, count/patch thấp & đều):**
+- R2 **worst-org cao nhất (0.906)** + **rẻ nhất (1 model, không quantile head / không M-ensemble / không T-sampling)**.
+- NHƯNG R2 **thua nhẹ Winkler/MAE** trước CQR/CHDQR/Ensemble (~1–1.5 Winkler, ~0.2 MAE). MC-Dropout kém nhất Winkler.
+- ⇒ Trên regime count-hẹp, R2 = **tie-best reliability (worst-org) + cheapest compute**, KHÔNG thắng tuyệt đối.
+  Kể thẳng: quantile-regression (CQR/CHDQR) học tốt khi count thấp/đều → cạnh tranh sòng phẳng ở đây.
+- **NuInsSeg (regime count-RỘNG 1→370) đang chạy** — đây là chỗ R2 σ Poisson-anchored được thiết kế để bứt (raw-σ
+  từng SẬP ở dải rộng, xem mục 8b). Chờ số cluster để chốt story: R2 mạnh ĐỀU cả 2 regime với 1 model rẻ, hay chỉ tie.
+
 ## 8d. ★ PHÂN TÍCH TĂNG CƯỜNG cho phản biện Q1 (A1 coverage-curve + A3 per-organ CI) — 2026-07-15
 Chạy hậu kỳ trên pkl R2 (feat) đã backup, script `analysis_coverage_curve.py` (tái dùng eval_scheme → khớp conformal).
 
