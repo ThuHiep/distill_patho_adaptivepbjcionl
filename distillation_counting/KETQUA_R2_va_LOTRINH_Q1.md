@@ -196,6 +196,32 @@ Per-fold R2-mondrian worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold)
 - R2CCP/CPCP MAE cao (5.8–30) là do **thiết kế của chúng train mạng riêng trên feature pooled, không dùng μ=Σdensity** —
   ghi rõ trong paper để reviewer không hiểu nhầm ta cố tình dìm baseline.
 
+## 8c-bis. ★ CROSS-DATASET TRANSFER (train A → test B) — 2026-07-15 (ĐÃ CHẠY vast)
+Script `eval_cross_dataset.py`: train student R2 TOÀN BỘ dataset A (teacher density cache của A) → predict
+TOÀN BỘ dataset B → recalibrate split-conformal TRÊN CAL CỦA B (chuẩn domain-transfer). Leak-free bẩm sinh
+(A,B khác dataset). Cùng backbone/loss/σ-mode/detach_mu như bảng chính. `--exclude_tissue colon` phía PanNuke.
+
+| Transfer | scheme tốt nhất | MAE | Winkler | **worst-org** | #under |
+|---|---|---|---|---|---|
+| **NuInsSeg → PanNuke** | mondrian | 19.90 | 97.21±2.6 | **0.897** | **0/18** |
+| **PanNuke → NuInsSeg** | cluster | 44.88 | 214.83±22 | 0.685 | 4/27 |
+| *(in-domain PanNuke)* | *mondrian* | *3.36* | *19.3* | *0.906* | *0/18* |
+| *(in-domain NuInsSeg)* | *cluster* | *14.2* | *87.7* | *0.773* | *—* |
+
+Chi tiết NuInsSeg→PanNuke: global worst 0.700/Winkler 101.6 → **mondrian worst 0.897, org-gap 0.036, 0/18 under**
+(marg.cov 0.908). PanNuke→NuInsSeg: global worst 0.421/Winkler 564 → **cluster worst 0.685, Winkler 215**
+(cắt 564→215, paired-Wilcoxon p=1.9e−6), marg.cov 0.904.
+
+**ĐỌC TRUNG THỰC (điểm vàng cho Q1 — trustworthiness KHÔNG dán chết vào 1 dataset):**
+- **Conditional coverage TRANSFER**: NuInsSeg→PanNuke worst-org 0.897 ≈ in-domain 0.906 (0/18 under) — claim
+  cốt lõi "đáng tin theo từng mô" giữ gần như nguyên sang dataset khác sau recalibrate nhẹ.
+- **σ distilled vẫn informative dưới shift**: chiều khó (PanNuke→NuInsSeg) cluster vẫn kéo worst 0.42→0.685 &
+  Winkler 564→215 (p=1.9e−6) — nếu σ transfer hỏng thì grouping đã vô dụng.
+- **Point accuracy (MAE) KHÔNG transfer tốt** (19.9 & 44.9 vs in-domain 3.36 & 14.2): do **lệch THANG count**
+  (PanNuke patch count-thấp ↔ NuInsSeg dải 1→370), KHÔNG phải σ sập. Ghi thẳng → motivate in-domain distillation
+  là use-case chính; transfer chứng minh (μ,σ) generalize chứ không thay thế in-domain.
+- Marginal coverage luôn ~0.90 (đúng lý thuyết split conformal ở target).
+
 ## 8d. ★ PHÂN TÍCH TĂNG CƯỜNG cho phản biện Q1 (A1 coverage-curve + A3 per-organ CI) — 2026-07-15
 Chạy hậu kỳ trên pkl R2 (feat) đã backup, script `analysis_coverage_curve.py` (tái dùng eval_scheme → khớp conformal).
 
