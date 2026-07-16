@@ -20,7 +20,7 @@
 | Model | Source | Target-FT | Params↓ | GMACs↓ | NuInsSeg MAE↓ | MoNuSAC MAE↓ | RMSE↓ | MAPE↓ | Bias | Latency | Count UQ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | **R2 student (ours)** | PanNuke | Không | 1.935M | 10.49 | 44.68 | TBD | … | … | … | 1.87ms | **✓** |
-| **NuLite-T** | PanNuke | Không | đo | đo | TBD | TBD | … | … | … | đo | ✗ |
+| **NuLite-T** | PanNuke | Không | **12.009M** (đo) | **19.80** (đo@256) | TBD | TBD | … | … | … | đo | ✗ |
 | **CellViT-256** | PanNuke | Không | đo | đo | TBD | TBD | … | … | … | đo | ✗ |
 | LKCell-L | PanNuke | Không | 163.84M* | 47.86* | 16.54† | TBD | … | … | … | đo | ✗ |
 | CellViT-SAM-H | PanNuke | Không | 699.74M* | 214.33* | 24.24† | TBD | … | … | … | đo | ✗ |
@@ -100,6 +100,14 @@ done
 ```
 - **Nếu student 3.36 ≤ NuLite-leak** → student vượt cả CẬN TRÊN của NuLite → **XONG, khỏi retrain** (kết luận: student in-domain ngang/hơn NuLite mà nhẹ 9×, dù NuLite được chấp leak).
 - **Nếu student 3.36 > NuLite-leak** → mơ hồ (có thể do leak) → **STAGE 2**.
+
+**★ KẾT QUẢ STAGE 1 (ĐÃ CHẠY 2026-07-16):** NuLite-T = **12.009M / 19.80 GMACs** (đo thật, ≠ 17M đoán).
+NuLite-T-leak (best-case, 3 fold): MAE 1.95/1.98/1.99 → **avg 1.97, MAPE ~9.9%, Bias −0.42**.
+Student leak-free (3 fold): MAE 3.19/3.19/3.76 → **avg 3.38, MAPE 23.0%**.
+→ **student/NuLite = 1.72× MAE, 2.3× MAPE**. MAE vùng xám (NuLite chấp leak → fair gap nhỏ hơn ~1.4–1.5×);
+**MAPE 2.3× là cấu trúc density-sum, leak KHÔNG giải thích hết** → student KÉM accuracy in-domain rõ.
+**Kết luận:** KHÔNG phải "accuracy ngang". Student đổi accuracy lấy **6× nhỏ + UQ**. → cần Stage 2 để chốt MAE fair,
+nhưng MAPE gap sẽ vẫn còn → accuracy KHÔNG phải trụ; efficiency + UQ mới là trụ.
 
 **STAGE 2 (chỉ khi cần) — retrain NuLite leak-free:**
 - Dùng code official NuLite (`prepare_pannuke.py` + `train_nulite.py` + config của họ), train **2 fold / test held-out** y hệt student, cả 3 fold.
