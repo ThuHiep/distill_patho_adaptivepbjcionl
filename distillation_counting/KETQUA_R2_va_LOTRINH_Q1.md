@@ -18,15 +18,15 @@ cho R2CCP) → cho số SAI. Đã **retrain R2 5 seed đúng config** để tái
 | **R2 PanNuke** | ✅ VERIFIED (tái tạo khớp từng số) | mondrian worst-org **0.906**, MAE **3.36**, Winkler **19.28** (avg 3 fold) |
 | **R2 NuInsSeg** | ✅ RE-ESTABLISHED 5 seed (2026-07-17) | cluster worst-org **0.750±0.049**, MAE **14.7±1.7**, Winkler **95.4±11.9** |
 | **KD (cả 2 dataset)** | ❌ pkl MẤT, số cũ CHƯA verify | cần retrain (PathoSAM + raw NuInsSeg) — **đừng cite tới khi có** |
-| **Baseline CondConf/PCP NuInsSeg** | ⚠️ chạy trên pkl R2 đã mất | cần re-eval trên pkl seed mới (eval-only, nhẹ) |
+| **Baseline CondConf/PCP NuInsSeg** | ✅ RE-EVAL 5-seed matched (2026-07-17) | CondConf-group 0.898±0.013/Winkler 146.8±24.9 (over-cover); PCP 0.708±0.069/105.9±12.1 → R2 đè PCP cả 2 trục |
 | **Baseline PanNuke** | ✅ chạy trên pkl R2 còn sống | giữ nguyên |
 
 **⚠️ MỌI số "0.773" NuInsSeg trong file này = SEED ĐƠN cũ** (nằm trong dải 0.70–0.82 nhưng không phải mean).
 Con số honest chính thức = **0.750±0.049**. Các mục §2/§3b–3d là **LEAKY single-split, SUPERSEDED** — không dùng cho paper.
 
 **BƯỚC TIẾP (thứ tự):**
-1. ✅ R2 NuInsSeg 5-seed (xong). 2. ⬜ Lấy raw NuInsSeg → retrain KD 5-seed → per-image significance R2-vs-KD.
-3. ⬜ Re-eval CondConf/PCP NuInsSeg trên pkl seed mới. 4. ⬜ MoNuSAC UQ-transfer (dataset 3). 5. → viết manuscript.
+1. ✅ R2 NuInsSeg 5-seed. 2. ✅ Re-eval CondConf/PCP 5-seed matched. 3. ⬜ UQ-floor regen (Ensemble/CQR/CHDQR/MC-Dropout) 5-seed (unblocked, density cache).
+4. ⬜ Lấy raw NuInsSeg + PathoSAM → KD 5-seed → per-image significance R2-vs-KD. 5. ⬜ MoNuSAC UQ-transfer. 6. → viết manuscript.
 ---
 
 ## 1. Method R2 (một câu)
@@ -215,24 +215,30 @@ Per-fold R2-mondrian worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold)
 
 ### NuInsSeg (cross-fit 5-fold)
 
-| Method | Năm | marg.cov | Winkler ↓ | MAE ↓ | **worst-org ↑** | #under | code |
-|---|---|---|---|---|---|---|---|
-| **R2-cluster (ours)** — 5 seed | — | ~0.91 | **95.4±11.9** | 14.7±1.7 | 0.750±0.049 | — | — |
-| CondConf-group ⚠️pkl cũ | 2025 | 0.938 | 125.4 | 13.6 | **0.850** | 0/21 | official |
-| PCP | 2024 | 0.914 | 91.1 | 13.6 | 0.714 | 4/21 | official |
-| CPCP | 2026 | — | 250.6 | 28.7 | 0.500 | — | official |
-| R2CCP | 2024 | — | 261.2 | 30.2 | 0.562 | — | official |
+**★ TẤT CẢ 5-seed matched (2026-07-17), CondConf/PCP re-eval trên chính pkl R2 seed mới — fair cùng seed:**
+
+| Method | Năm | marg.cov | Winkler ↓ | worst-org ↑ | Đọc |
+|---|---|---|---|---|---|
+| **R2-cluster (ours)** | — | ~0.91 (sát target) | **95.4±11.9** | 0.750±0.049 | cân bằng: Winkler tốt nhất trong nhóm calibrated + worst-org mạnh |
+| CondConf-group | 2025 | **0.95** (over-cover) | 146.8±24.9 | **0.898±0.013** | worst-org cao NHẤT nhưng nới khoảng thô (width ~150 vs R2 ~68) → Winkler tệ +54% |
+| PCP | 2024 | ~0.92 | 105.9±12.1 | 0.708±0.069 | **R2 thắng CẢ 2 trục** (worst 0.750>0.708, Winkler 95<106) |
+| CPCP (⚠️pkl cũ, feat) | 2026 | — | 250.6 | 0.500 | không re-run (cần feature; seed pkl không có) |
+| R2CCP (⚠️pkl cũ, feat) | 2024 | — | 261.2 | 0.562 | không re-run (cần feature) |
+
+MAE mọi method = 14.7±1.7 (cùng μ=Σdensity). **Kết luận NuInsSeg:** R2 = **hiệu quả interval tốt nhất** (Winkler thấp nhất trong nhóm
+calibrated đúng target) + worst-org mạnh; CondConf đổi worst-org cao lấy over-coverage + khoảng rộng gấp đôi (kém hiệu quả); R2 đè PCP cả 2 trục.
 
 ### Câu chuyện chốt (trung thực, đủ mạnh cho Q1)
 
 - **PanNuke:** R2-mondrian đạt **worst-org 0.906 — CAO NHẤT trong mọi method, kể cả CondConf-2025 (0.853)** — với
   Winkler/MAE tương đương và **không cần train lại**. R2 thắng KD toàn diện (p=1.9e−6). CPCP/R2CCP (train net riêng
   trên feature 256-chiều pooled, mất thông tin không gian density) tụt hẳn cả worst-org lẫn MAE.
-- **NuInsSeg:** CondConf-group nhỉnh worst-org (0.850 vs **0.750±0.049**). Đổi lại R2 **thắng Winkler (95.4±11.9 vs 125.4, khoảng chặt
-  hơn ~24%)** ở cùng coverage, MAE ngang. *(số 5-seed honest; baseline cần re-eval trên pkl seed mới.)*
-  ⚠️ **SỬA (critique 3.3):** KHÔNG nói "R2 không cần organ". R2-**cluster** (scheme đạt 0.773) map test qua `organs[i]` → **CŨNG cần
-  nhãn organ lúc test**, y như CondConf. Câu đúng: *cùng dùng organ, R2 cho khoảng hiệu quả hơn ~30% (Winkler 87.7 vs 125.4) ở
-  chi phí thấp hơn nhiều — 1 model, không train net riêng như CondConf/R2CCP.* (R2-global mới là biến thể không cần organ, worst-org thấp hơn.)
+- **NuInsSeg (5-seed matched):** CondConf-group đạt worst-org cao hơn (**0.898±0.013** vs R2 0.750±0.049) NHƯNG bằng cách
+  **over-cover** (marg.cov 0.95 vs target 0.90) + nới khoảng gấp đôi → **Winkler tệ hơn 54%** (146.8±24.9 vs R2 **95.4±11.9**).
+  R2 = interval **hiệu quả nhất** trong nhóm calibrated đúng target. **R2 đè PCP cả 2 trục** (worst 0.750>0.708, Winkler 95<106). MAE ngang.
+  ⚠️ **SỬA (critique 3.3):** KHÔNG nói "R2 không cần organ". R2-**cluster** map test qua `organs[i]` → **CŨNG cần nhãn organ lúc test**,
+  y như CondConf. Câu đúng: *cùng dùng organ, R2 cho khoảng hiệu quả hơn nhiều ở chi phí thấp hơn (1 model, không train net riêng).*
+  (R2-global mới là biến thể không cần organ, worst-org thấp hơn.)
 - R2CCP/CPCP MAE cao (5.8–30) là do **thiết kế của chúng train mạng riêng trên feature pooled, không dùng μ=Σdensity** —
   ghi rõ trong paper để reviewer không hiểu nhầm ta cố tình dìm baseline.
 

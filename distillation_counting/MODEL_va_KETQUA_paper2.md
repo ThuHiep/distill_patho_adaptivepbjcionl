@@ -146,14 +146,14 @@ KD numbers cần retrain 5-seed để chốt gap honest.
 | Method | Năm | Winkler ↓ | MAE ↓ | worst-org ↑ |
 |---|---|---|---|---|
 | **R2-cluster (ours)** — 5 seed | — | **95.4±11.9** | 14.7±1.7 | 0.750±0.049 |
-| CondConf-group (⚠️pkl cũ) | 2025 | 125.4 | 13.6 | **0.850** |
-| PCP (⚠️pkl cũ) | 2024 | 91.1 | 13.6 | 0.714 |
+| CondConf-group (5-seed) | 2025 | 146.8±24.9 | 14.7 | **0.898±0.013** (over-cover, marg.cov 0.95) |
+| PCP (5-seed) | 2024 | 105.9±12.1 | 14.7 | 0.708±0.069 |
 | CPCP | 2026 | 250.6 | 28.7 | 0.500 |
 | R2CCP | 2024 | 261.2 | 30.2 | 0.562 |
 
 **Đọc trung thực:** PanNuke — R2-mondrian worst-org **0.906 = CAO NHẤT mọi method** (kể cả CondConf-2025) mà
-**không train lại**. NuInsSeg — R2 thắng **Winkler** (95.4±11.9, ~−24% vs CondConf 125.4, 5-seed honest); CondConf nhỉnh
-worst-org (0.850 vs R2 0.750±0.049).
+**không train lại**. NuInsSeg (5-seed matched) — R2 thắng **Winkler** (95.4±11.9 vs CondConf 146.8±24.9, −35%); CondConf nhỉnh
+worst-org (0.898 vs R2 0.750) nhưng over-cover (marg.cov 0.95, khoảng rộng gấp đôi). **R2 đè PCP cả 2 trục** (0.750/95.4 vs 0.708/105.9).
 ⚠️ **SỬA claim (critique 3.3 — TRÁNH overclaim):** *KHÔNG* nói "R2 không cần organ". Các scheme conditional đạt worst-org cao
 của R2 (**mondrian** PanNuke, **cluster** NuInsSeg) ĐỀU **cần nhãn organ/tissue lúc test** (mondrian bin theo mô; cluster map
 test-sample qua `organs[i]`) — y như CondConf. Chỉ **R2-global** không cần organ nhưng worst-org yếu hơn. ⇒ Lợi thế R2 so
@@ -251,8 +251,8 @@ U-Net backbone = cũ. UQ floor (MC-Dropout/Ensemble/CQR/CHDQR) = code lại củ
 | NuInsSeg (5 seed) ✅ | 95.4±11.9 | 14.7±1.7 | 0.750±0.049 | worst 0.282 |
 
 **(b) vs baseline recent (code official)** — PanNuke: R2-mondrian **worst-org 0.906 = CAO NHẤT** (CondConf-25 0.853,
-PCP-24 0.805, CPCP-26 0.758, R2CCP-24 0.621, KD 0.721). NuInsSeg: R2 **Winkler 95.4±11.9** (~−24% vs CondConf
-125.4); CondConf nhỉnh worst-org 0.850. ⚠️ baseline NuInsSeg chạy trên pkl R2 cũ (mất) → re-eval trên seed mới.
+PCP-24 0.805, CPCP-26 0.758, R2CCP-24 0.621, KD 0.721). NuInsSeg (5-seed matched ✅): R2 **Winkler 95.4±11.9 vs
+CondConf 146.8±24.9 (−35%)**; CondConf nhỉnh worst-org 0.898 nhưng over-cover; **R2 đè PCP cả 2 trục** (0.750/95.4 vs 0.708/105.9).
 
 **(c) UQ floor (mới, số thật — đọc TRUNG THỰC ở mục 8c-ter file KETQUA):**
 
