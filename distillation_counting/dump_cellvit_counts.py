@@ -39,7 +39,15 @@ def main():
     ap.add_argument("--lkcell", action="store_true",
                     help="LKCell: __get_model gốc build sai (ViT signature) cho model unireplknet -> "
                          "patch build đúng bằng chính class CellViT (=UniRepLKNet) + config của LKCell.")
+    ap.add_argument("--nulite", action="store_true",
+                    help="NuLite (CosmoIknosLab): import CellSegmentationInference từ "
+                         "nuclei_detection.inference.nuclei_detection (repo fork CellViT). __load_model TỰ build "
+                         "NuLite(...) + reparameterize_encoder -> KHÔNG cần monkeypatch. Dùng nhánh retrieve_tokens "
+                         "(KHÔNG --no_tokens). --cellvit_dir trỏ vào repo NuLite đã clone.")
     ap.add_argument("--limit", type=int, default=0, help=">0: chỉ N ảnh đầu (validate nhanh mode resize/tile)")
+    ap.add_argument("--measure_cost", action="store_true",
+                    help="CHỈ đo params + GMACs của model (thop) rồi thoát — đo NuLite/CellViT/LKCell bằng "
+                         "CÙNG script (nhất quán với count_student_cost.py). Dùng --infer_size để đặt độ phân giải.")
     args = ap.parse_args()
 
     sys.path.insert(0, os.path.abspath(args.cellvit_dir))
@@ -48,8 +56,14 @@ def main():
     # Ta TIN checkpoint (repo chính thức) -> ép weights_only=False. Chỉ đổi CÁCH NẠP, không đổi thuật toán.
     _orig_load = torch.load
     torch.load = lambda *a, **k: _orig_load(*a, **{**k, "weights_only": False})
-    import cell_segmentation.inference.cell_detection as _cd
-    from cell_segmentation.inference.cell_detection import CellSegmentationInference
+    if args.nulite:
+        # NuLite: fork CellViT nhưng module inference ở nuclei_detection.inference.nuclei_detection.
+        # __load_model TỰ build NuLite(...) + reparameterize_encoder -> KHÔNG cần monkeypatch __get_model.
+        import nuclei_detection.inference.nuclei_detection as _cd
+        from nuclei_detection.inference.nuclei_detection import CellSegmentationInference
+    else:
+        import cell_segmentation.inference.cell_detection as _cd
+        from cell_segmentation.inference.cell_detection import CellSegmentationInference
 
     if args.lkcell:
         # LKCell: build model ĐÚNG bằng class CellViT(=UniRepLKNet) + config, y hệt
@@ -71,6 +85,19 @@ def main():
 
     inf = CellSegmentationInference(model_path=args.ckpt, gpu=args.gpu)  # tự load model + transforms
     dev = next(inf.model.parameters()).device
+
+    if args.measure_cost:
+        nparam = sum(p.numel() for p in inf.model.parameters())
+        sz = args.infer_size or 256
+        print(f"[COST] ckpt={os.path.basename(args.ckpt)} | params={nparam/1e6:.3f}M", end="")
+        try:
+            from thop import profile
+            dummy = torch.randn(1, 3, sz, sz).to(dev)
+            macs, _ = profile(inf.model, inputs=(dummy,), verbose=False)
+            print(f" | GMACs@{sz}={macs/1e9:.2f}")
+        except Exception as e:
+            print(f" | GMACs FAIL ({type(e).__name__}) -> chỉ báo params (đo GMACs tay nếu cần)")
+        return
 
     paths = sorted(glob.glob(os.path.join(args.images_dir, "*.png")))
     if args.limit:

@@ -54,6 +54,7 @@ def stats(gt, pred, organ, label):
     ae = np.abs(p - y)
     mae = float(ae.mean()); rmse = float(np.sqrt(((p - y) ** 2).mean()))
     mape = float((ae / np.maximum(y, 1)).mean() * 100)
+    bias = float((p - y).mean())   # signed: âm = under-predict (đếm thiếu), dương = over-predict
     # per-organ
     by = defaultdict(list)
     for k in keys:
@@ -61,7 +62,7 @@ def stats(gt, pred, organ, label):
     org_mae = {o: float(np.mean(v)) for o, v in by.items() if len(v) >= 5}
     worst = max(org_mae.items(), key=lambda kv: kv[1]) if org_mae else (None, None)
     return {"label": label, "n": len(keys), "miss": len(miss), "mae": mae, "rmse": rmse,
-            "mape": mape, "org_mae": org_mae, "worst": worst}
+            "mape": mape, "bias": bias, "org_mae": org_mae, "worst": worst}
 
 
 def student_row(pkl, gt_from_pkl=True):
@@ -78,7 +79,8 @@ def student_row(pkl, gt_from_pkl=True):
     worst = max(org_mae.items(), key=lambda kv: kv[1]) if org_mae else (None, None)
     return {"label": "Student R2 (ours, 1.9M)", "n": len(mu), "miss": 0,
             "mae": float(ae.mean()), "rmse": float(np.sqrt((ae ** 2).mean())),
-            "mape": float((ae / np.maximum(y, 1)).mean() * 100), "org_mae": org_mae, "worst": worst}
+            "mape": float((ae / np.maximum(y, 1)).mean() * 100), "bias": float((mu - y).mean()),
+            "org_mae": org_mae, "worst": worst}
 
 
 def teacher_row(pkl):
@@ -96,20 +98,22 @@ def teacher_row(pkl):
     worst = max(org_mae.items(), key=lambda kv: kv[1]) if org_mae else (None, None)
     return {"label": "Teacher PathoSAM (~640M)", "n": len(pred), "miss": 0,
             "mae": float(ae.mean()), "rmse": float(np.sqrt((ae ** 2).mean())),
-            "mape": float((ae / np.maximum(y, 1)).mean() * 100), "org_mae": org_mae, "worst": worst}
+            "mape": float((ae / np.maximum(y, 1)).mean() * 100), "bias": float((pred - y).mean()),
+            "org_mae": org_mae, "worst": worst}
 
 
 def pretty(rows):
     print("\n" + "=" * 84)
     print("PHẦN B — COUNT-MAE trên NuInsSeg (heavy net OOD off-the-shelf vs student in-domain)")
     print("=" * 84)
-    h = f"{'method':26} | {'N':>4} | {'MAE':>7} | {'RMSE':>7} | {'MAPE%':>6} | {'worst-organ MAE':>22}"
+    h = (f"{'method':26} | {'N':>4} | {'MAE':>7} | {'RMSE':>7} | {'MAPE%':>6} | {'Bias':>8} | "
+         f"{'worst-organ MAE':>22}")
     print(h); print("-" * len(h))
     for d in rows:
         wo = f"{d['worst'][0]}={d['worst'][1]:.2f}" if d["worst"][0] else "n/a"
         miss = f" (miss {d['miss']})" if d.get("miss") else ""
         print(f"{d['label']:26} | {d['n']:>4} | {d['mae']:7.2f} | {d['rmse']:7.2f} | "
-              f"{d['mape']:6.1f} | {wo:>22}{miss}")
+              f"{d['mape']:6.1f} | {d.get('bias', 0.0):+8.2f} | {wo:>22}{miss}")
     print("-" * len(h))
     print("[GHI CHÚ] student in-domain (cv5) vs heavy net OOD → story: adapt 700M rất đắt, distill 1.9M rẻ mà bám sát.")
     print("          + student là model DUY NHẤT có σ/interval (bảng A). MAE thấp hơn = đếm tốt hơn.")

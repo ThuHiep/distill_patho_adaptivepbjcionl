@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse, os, pickle, sys
 import numpy as np
 import torch
+from PIL import Image
 
 REPO = os.environ.get("REPO", "/workspace/sam3_research")
 for p in (f"{REPO}/kaggle/vast", f"{REPO}/kaggle/lib", REPO, os.path.dirname(os.path.abspath(__file__))):
@@ -73,10 +74,33 @@ def _load_dataset(name, args, device):
     return data
 
 
+def _load_test_folder(images_dir, gt_csv):
+    """Test set generic từ folder ảnh + gt_counts.csv (image,gt_count) — cho MoNuSAC (prep_monusac_counts.py)
+    hoặc bất kỳ dataset OOD nào. Resize 256 (input student). organ='_all_' (chỉ cần count MAE)."""
+    import csv, glob
+    gt = {}
+    with open(gt_csv) as f:
+        r = csv.reader(f); next(r)
+        for row in r:
+            gt[row[0]] = float(row[1])
+    data = []
+    for p in sorted(glob.glob(os.path.join(images_dir, "*.png"))):
+        name = os.path.splitext(os.path.basename(p))[0]
+        if name not in gt:
+            continue
+        img = np.asarray(Image.open(p).convert("RGB").resize((256, 256), Image.BILINEAR)).astype(np.uint8)
+        data.append({"img": img, "gt": gt[name], "organ": "_all_"})
+    print(f"[TEST-FOLDER] {images_dir}: {len(data)} ảnh (resize 256, OOD zero-shot)")
+    return data
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--train_dataset", choices=["nuinsseg", "pannuke"], required=True)
-    ap.add_argument("--test_dataset", choices=["nuinsseg", "pannuke"], required=True)
+    ap.add_argument("--test_dataset", choices=["nuinsseg", "pannuke"], default=None,
+                    help="dataset test built-in; HOẶC dùng --test_images_dir cho folder ngoài (MoNuSAC).")
+    ap.add_argument("--test_images_dir", default=None, help="folder ảnh test ngoài (MoNuSAC) — cần --test_gt_csv")
+    ap.add_argument("--test_gt_csv", default=None, help="gt_counts.csv (image,gt_count) cho --test_images_dir")
     ap.add_argument("--pannuke_root", default=f"{REPO}/data/pannuke")
     ap.add_argument("--pannuke_folds", default="1,2,3")
     ap.add_argument("--exclude_tissue", default=None,
@@ -99,12 +123,17 @@ def main():
     ap.add_argument("--out", default=f"{REPO}/work/xfer_preds.pkl")
     args = ap.parse_args()
 
-    assert args.train_dataset != args.test_dataset, \
+    use_folder = bool(args.test_images_dir)
+    assert use_folder or args.test_dataset, "cần --test_dataset HOẶC --test_images_dir + --test_gt_csv"
+    assert use_folder or args.train_dataset != args.test_dataset, \
         "cross-dataset: train và test phải KHÁC dataset (in-domain đã có ở bảng chính)."
+    if use_folder:
+        assert args.test_gt_csv, "--test_images_dir cần kèm --test_gt_csv"
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     np.random.seed(args.seed); torch.manual_seed(args.seed)
-    print(f"device={device} | TRANSFER {args.train_dataset} -> {args.test_dataset}")
+    tgt = args.test_images_dir if use_folder else args.test_dataset
+    print(f"device={device} | TRANSFER {args.train_dataset} -> {tgt}")
 
     # 1) train trên TOÀN BỘ A (test là dataset khác -> không leak ảnh)
     train_data = _load_dataset(args.train_dataset, args, device)
@@ -113,9 +142,12 @@ def main():
                   list(range(len(train_data))), args.w_density, args.w_count, args.w_nll,
                   args.beta, args.bs, args.detach_mu, args.sigma_mode)
 
-    # 2) predict trên TOÀN BỘ B
-    test_data = _load_dataset(args.test_dataset, args, device)
-    print(f"[TEST] {args.test_dataset}: {len(test_data)} ảnh (predict toàn bộ)")
+    # 2) predict trên TOÀN BỘ B (built-in dataset hoặc folder ngoài như MoNuSAC)
+    if use_folder:
+        test_data = _load_test_folder(args.test_images_dir, args.test_gt_csv)
+    else:
+        test_data = _load_dataset(args.test_dataset, args, device)
+    print(f"[TEST] {tgt}: {len(test_data)} ảnh (predict toàn bộ)")
     out = predict_r2(model, test_data, device, dump_feat=args.dump_feat)
     pickle.dump(out, open(args.out, "wb"))
 
