@@ -109,6 +109,38 @@ done
 
 ---
 
+## Ưu tiên 4 — Q1-hardening core A (2026-07-16) — 2 việc vast-bound còn lại
+
+### 4a. Dataset thứ 3 = MoNuSAC (UQ-transfer) — bịt lỗ breadth (top-tier đòi ≥3 dataset)
+> Code sẵn (`eval_cross_dataset.py` + `prep_monusac_counts.py`). MoNuSAC count 2→772 (mean 150) rất cao →
+> **kỳ vọng student under-predict, MAE OOD kém** (ghi trung thực). Điểm bán = **UQ có transfer không**, KHÔNG phải MAE.
+```bash
+cd $REPO/distillation_counting && git pull
+# prep MoNuSAC PNG (nếu chưa có trên vast)
+python prep_monusac_counts.py --pkl ../data/monusac_converted.pkl --out ../work/monusac_png
+# PanNuke -> MoNuSAC: train student trên PanNuke, predict MoNuSAC (μ,σ)
+python eval_cross_dataset.py --train_dataset pannuke --exclude_tissue colon --detach_mu \
+    --test_images_dir ../work/monusac_png/images --test_gt_csv ../work/monusac_png/gt_counts.csv \
+    --out ../work/xfer_pannuke2monusac.pkl
+# UQ transfer trên MoNuSAC (organs=_all_ -> chỉ global có nghĩa): source-only vs small target-cal
+python eval_r2_grouped.py --preds ../work/xfer_pannuke2monusac.pkl --seeds 20
+```
+→ Ghi vào **BẢNG B** (LIGHTWEIGHT_COMPARISON_PLAN.md) + mục 8c của KETQUA. Đọc: coverage global transfer bao nhiêu,
+MAE lệch thang bao nhiêu. Nếu recalibrate với target-cal nhỏ mà coverage phục hồi ~0.90 → **luận điểm "UQ recalibrate rẻ" đứng vững**.
+
+### 4b. Per-image paired significance (thay pseudoreplication seed-based — critique 3.5)
+> Code MỚI đã thêm: `eval_r2_grouped.py --per_image_test`. Chạy trên pkl R2 + KD ĐÃ CÓ ở `work/` (không train lại).
+```bash
+# NuInsSeg (cluster = cấu hình chốt)
+python eval_r2_grouped.py --preds ../work/student_r2_nuinsseg.pkl --kd ../work/student_kd_nuinsseg.pkl \
+    --n_clusters 5 --per_image_test --pit_scheme cluster
+# PanNuke (mondrian = cấu hình chốt) — mỗi fold 1 lần, hoặc pkl gộp
+python eval_r2_grouped.py --preds ../work/student_r2_pannuke_f3.pkl --kd ../work/student_kd_pannuke_f3.pkl \
+    --per_image_test --pit_scheme mondrian
+```
+→ Thay MỌI "p=1.9e−6 (seed)" bằng **Winkler mean-Δ + 95% bootstrap CI over images + Wilcoxon-per-image p**.
+Ghi số mới vào KETQUA §4 + doc chính §C1. **Tên file pkl chính xác**: kiểm `ls ../work/*r2*.pkl ../work/*kd*.pkl` trước (đặt đúng tên).
+
 ## Ghi chú compute
 - 5090 ~$0.015/hr. Nặng nhất = ensemble (M models × folds) + A2 PanNuke (3 mode × 3 fold = 9 train). Tổng vài giờ.
 - Nếu gấp: chạy Ưu tiên 1 + PanNuke của Ưu tiên 2 trước (đủ mạnh cho vòng nộp đầu), phần còn lại bổ sung khi review.
