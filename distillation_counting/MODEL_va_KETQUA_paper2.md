@@ -113,7 +113,7 @@ Sau khi có (μ, σ) leak-free, dựng khoảng bằng **split conformal** trên
 ## C. KẾT QUẢ (đã chạy thật, leak-free)
 
 ### C1. Kết quả CHÍNH — R2 (ours) vs KD (cùng student ~1.9M) — cả 2 dataset, 3 trục
-R2 thắng KD **SẠCH cả 3 trục trên cả 2 dataset** (paired-Wilcoxon **p ≤ 1.9e−6** mọi trục/fold):
+R2 thắng KD **SẠCH cả 3 trục trên cả 2 dataset** (⚠️ p=1.9e−6 = seed-based **pseudoreplication**, phải thay bằng **paired Wilcoxon per-image / bootstrap** cho manuscript — xem đính chính §4 KETQUA_R2):
 
 | Dataset | Winkler R2 / KD | MAE R2 / KD | worst-org R2 / KD | #mô under R2 / KD |
 |---|---|---|---|---|
@@ -148,8 +148,12 @@ khoảng hẹp đạt marginal nhưng **conditional coverage thảm hoạ** (wor
 
 **Đọc trung thực:** PanNuke — R2-mondrian worst-org **0.906 = CAO NHẤT mọi method** (kể cả CondConf-2025) mà
 **không train lại**. NuInsSeg — R2 thắng **Winkler đậm nhất** (87.7, ~−30% vs CondConf 125.4); CondConf nhỉnh
-worst-org (0.850) NHƯNG *được cấp nhãn organ tường minh* còn R2 thì không cần. R2CCP/CPCP MAE cao vì train net
-riêng trên feature pooled (mất density) — ghi rõ.
+worst-org (0.850).
+⚠️ **SỬA claim (critique 3.3 — TRÁNH overclaim):** *KHÔNG* nói "R2 không cần organ". Các scheme conditional đạt worst-org cao
+của R2 (**mondrian** PanNuke, **cluster** NuInsSeg) ĐỀU **cần nhãn organ/tissue lúc test** (mondrian bin theo mô; cluster map
+test-sample qua `organs[i]`) — y như CondConf. Chỉ **R2-global** không cần organ nhưng worst-org yếu hơn. ⇒ Lợi thế R2 so
+CondConf KHÔNG phải "khỏi cần organ" mà là **worst-org ngang/hơn ở CHI PHÍ THẤP HƠN NHIỀU** (1 model, không train net riêng)
++ xuất phân phối calibrated. R2CCP/CPCP MAE cao vì train net riêng trên feature pooled (mất density) — ghi rõ.
 
 ### C3. Efficiency (Bước 2, Phần A) — số EXACT trích paper + student mình đo
 | Model | Params (M) | GMACs@256 | có UQ? |
@@ -223,10 +227,10 @@ nhẹ distilled" (Paper 2).
 
 | # | Đóng góp mới | Loại | Vì sao MỚI (không trùng Paper 1 / baseline) |
 |---|---|---|---|
-| **N1** | **Distributional distillation** — chưng cất foundation (PathoSAM 640M) → student 1.9M xuất CẢ PHÂN PHỐI (μ,σ) | concept | Distillation thường truyền ĐIỂM; đây distill thành PHÂN PHỐI đếm. Paper 1 KHÔNG train model (chỉ bọc detector nặng) |
+| **N1** | **Tổ hợp mới** = [density-distillation từ foundation 640M→1.9M] **+** [calibration count-level] **+** [head Poisson-anchored xuất (μ,σ)] → student tí hon cho ra **phân phối đếm calibrated**. KHÔNG claim "distill-thành-phân-phối" như concept trần | tổ hợp (không phải concept lẻ) | ⚠️ Distillation & heteroscedastic-UQ tồn tại RIÊNG (critique). Cái mới = **kết hợp cụ thể** ba mảnh trên trong 1 student count-only + không peer distilled nào (HoVer-unet/9M-student) xuất UQ. Paper 1 KHÔNG train model (chỉ bọc detector nặng). ⇒ N1 mạnh **nhờ đi cùng N2–N4**, không đứng một mình |
 | **N2** | **σ Poisson-anchored** `σ=√(max(μ,1))·exp(clamp(log_s,−2,2))` | parameterization mới | Công thức σ mới cho count data: neo √μ (Poisson) + head học dispersion. KHÁC hẳn σ=√Σsᵢ(1−sᵢ) (Poisson-Binomial) của Paper 1. Kèm diagnostic→fix (σ thô sập dải rộng → neo → cứu) |
 | **N3** | **`detach_mu` / optimization decoupling** — tách μ khỏi NLL | kỹ thuật train mới | Gỡ **mean–variance optimization conflict** (L_nll≫L_count kéo lệch μ). Nguyên lý tổng quát cho heteroscedastic count regression, không riêng model này |
-| **N4** | **Insight: learned-σ > score-σ khi nén 1.9M** (R2 vs KD, p=1.9e−6) | phát hiện empirical | Chứng minh cơ chế σ của Paper 1 THUA khi ép vào model tí hon → phải HỌC σ. Không hiển nhiên, phải chạy mới biết |
+| **N4** | **Insight: learned-σ > score-σ khi nén 1.9M** (R2 vs KD; sig. = per-image paired test, KHÔNG phải seed-based) | phát hiện empirical | Chứng minh cơ chế σ của Paper 1 THUA khi ép vào model tí hon → phải HỌC σ. Không hiển nhiên, phải chạy mới biết |
 | **N5** | **Insight: conditional coverage TRANSFER cross-dataset dù MAE không** (8c-bis) | phát hiện empirical | worst-org NuInsSeg→PanNuke 0.897≈in-domain 0.906 dù điểm đếm lệch thang → độ tin cậy generalize ĐỘC LẬP với độ chính xác điểm |
 
 **Ranh giới (để không double-claim):** khung conformal/PB-JCI = **Paper 1** (CITE). Density-map counting (Σdensity),

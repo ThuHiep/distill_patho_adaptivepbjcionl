@@ -90,7 +90,15 @@ Nhiều cluster → worst-org ↑, đổi lấy Winkler ↑ nhẹ + marginal con
 0.78 vs KD 0.264 = cải thiện lớn. Chốt **n_clusters=5** (không đẩy tối đa, tránh over-tuning).
 
 ## 4. Lộ trình Q1 (trạng thái)
-1. ✅ **Significance** (paired Wilcoxon): R2-cluster vs KD Winkler −65 (p=1.9e−6), MAE −12 (p=1.9e−6).
+
+> ⚠️⚠️ **ĐÍNH CHÍNH THỐNG KÊ (critique 3.5 — CHI PHỐI MỌI "p=1.9e−6" trong file này):** con số `p=1.9e−6 ≈ 2/2²⁰`
+> đến từ Wilcoxon trên **20 seeds**, mà 20 seeds = 20 lần **re-split cùng một bộ prediction cố định** → KHÔNG độc lập =
+> **pseudoreplication**. Đây KHÔNG phải bằng chứng significance hợp lệ, KHÔNG được đưa vào manuscript như vậy.
+> **Test ĐÚNG cho manuscript:** Winkler/interval-score tính **per-image** → chạy **paired Wilcoxon per-image giữa R2 và KD
+> trên CÙNG N ảnh test** (N=665 NuInsSeg / vài nghìn PanNuke), hoặc **bootstrap CI** trên tập ảnh test. Đơn vị lặp = ẢNH, không phải seed.
+> → Cần recompute trên vast (per-image R2/KD preds ở đó). Mọi "p=1.9e−6" dưới đây = **PLACEHOLDER phải thay**.
+
+1. ⚠️ **Significance** (paired Wilcoxon **per-image — CHƯA chạy**; số seed-based cũ = placeholder): R2-cluster vs KD Winkler −65, MAE −12 (dấu hiệu ổn định qua fold, chờ per-image test).
 2. ✅ **Ablation**: density→+count→+NLL→±cluster. NLL-coupling làm hỏng MAE → sửa bằng `--detach_mu`.
 3. ✅ **Đẩy worst-org**: n_clusters sweep → chốt 5 (worst-org 0.773, trần thực tế ~0.78).
 4. ✅ **Compression sweep** (ch=16/32/64): ch=32 sweet spot, ch=16 (~0.5M) vẫn thắng KD.
@@ -190,9 +198,11 @@ Per-fold R2-mondrian worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold)
 - **PanNuke:** R2-mondrian đạt **worst-org 0.906 — CAO NHẤT trong mọi method, kể cả CondConf-2025 (0.853)** — với
   Winkler/MAE tương đương và **không cần train lại**. R2 thắng KD toàn diện (p=1.9e−6). CPCP/R2CCP (train net riêng
   trên feature 256-chiều pooled, mất thông tin không gian density) tụt hẳn cả worst-org lẫn MAE.
-- **NuInsSeg:** CondConf-group nhỉnh worst-org (0.850 vs 0.773) — nhưng **được cấp nhãn organ tường minh** (Φ=[1,onehot])
-  trên dataset ít mẫu/nhiều mô. Đổi lại R2 **thắng Winkler đậm (87.7 vs 125.4, khoảng chặt hơn ~30%)** ở cùng coverage,
-  MAE ngang. Kể thẳng: *R2 cho khoảng hiệu quả hơn hẳn mà KHÔNG cần biết organ; CondConf phải được cấp organ mới đạt worst-org đó.*
+- **NuInsSeg:** CondConf-group nhỉnh worst-org (0.850 vs 0.773). Đổi lại R2 **thắng Winkler đậm (87.7 vs 125.4, khoảng chặt
+  hơn ~30%)** ở cùng coverage, MAE ngang.
+  ⚠️ **SỬA (critique 3.3):** KHÔNG nói "R2 không cần organ". R2-**cluster** (scheme đạt 0.773) map test qua `organs[i]` → **CŨNG cần
+  nhãn organ lúc test**, y như CondConf. Câu đúng: *cùng dùng organ, R2 cho khoảng hiệu quả hơn ~30% (Winkler 87.7 vs 125.4) ở
+  chi phí thấp hơn nhiều — 1 model, không train net riêng như CondConf/R2CCP.* (R2-global mới là biến thể không cần organ, worst-org thấp hơn.)
 - R2CCP/CPCP MAE cao (5.8–30) là do **thiết kế của chúng train mạng riêng trên feature pooled, không dùng μ=Σdensity** —
   ghi rõ trong paper để reviewer không hiểu nhầm ta cố tình dìm baseline.
 
