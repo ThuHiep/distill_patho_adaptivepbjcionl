@@ -330,3 +330,27 @@ chúng to hơn, đếm giỏi hơn, KHÔNG UQ) — chỉ **CITE** để định 
 3. Sửa framing critique (N1 "distills distribution"→combo cụ thể; "R2 không cần organ" sai cho cluster; Wilcoxon per-image).
 4. Giữ UQ + efficiency + cross-dataset (đã xong). → rồi VIẾT manuscript.
 5. Optional nâng chắc: dataset 3 (MoNuSAC, harness sẵn) cho UQ-transfer; #5 detach_mu theory.
+
+### G.7 — ★ BẢNG ANNOTATION-COST (lá chắn label-efficiency) — 2026-07-16
+
+> Trả lời câu reviewer chắc chắn hỏi: *"student thua accuracy lightweight khác (1.72× MAE vs NuLite) thì bán cái gì?"*
+> Trục bán KHÔNG phải accuracy mà là **chi phí giám sát để triển khai + UQ**. Bảng này định vị theo *loại nhãn cần*, không phải theo điểm số.
+
+**Loại giám sát MỖI method cần để train/adapt (nền tảng honesty của claim):**
+
+| Method | Backbone/Teacher | Nhãn TARGET cần để train | Độ mịn nhãn | Output | UQ | Params |
+|---|---|---|---|---|---|---|
+| **R2 student (ours)** | frozen PathoSAM (density) | **count-scalar/ảnh** (+ density teacher = 0 nhãn người) | **point-level** | count distribution (μ,σ) | **✓ calibrated** | **1.9M** |
+| NuLite-T | ImageNet | **instance mask pixel + tissue-class** | pixel boundary+class | instance seg (→count post-proc) | ✗ | 12.0M |
+| CellViT-SAM-H | SAM | instance mask pixel + class | pixel boundary+class | instance seg | ✗ | 700M |
+| HoVer-unet (distilled) | HoverNet teacher | (distill) — teacher mask-trained; output seg | pixel (qua teacher) | instance seg | ✗ | ~ |
+| 9M H-Optimus student (distilled) | H-Optimus teacher | (distill) — teacher mask-trained; output seg | pixel (qua teacher) | seg | ✗ | 9M |
+
+**★ ĐỌC TRUNG THỰC (bắt buộc — tránh overclaim):**
+- Claim là về **YÊU CẦU giám sát của phương pháp**, KHÔNG phải "mình đã dùng nhãn rẻ hơn". Trong thí nghiệm này GT count vẫn
+  **lấy từ mask** (`len(unique(mask))−bg`) vì dataset có sẵn mask. Cái ta chứng minh: task-head của student **chỉ CẦN một scalar count/ảnh**
+  — thứ lấy được bằng **dot/point annotation** (click từng nhân), rẻ hơn boundary-mask nhiều lần (lập luận chuẩn của counting literature,
+  point-vs-pixel — **cite**, KHÔNG bịa con số "100×"). NuLite/CellViT **bắt buộc** có mask pixel-level mới train được → đó là khác biệt cứng.
+- vs peer **distilled** (HoVer-unet, 9M-student): chúng cũng distill nên student cũng không cần mask mới — **khác biệt của ta với nhóm này KHÔNG phải label-cost mà là (a) task-head count-level + (b) distributional UQ** (không peer nào có). Đừng dùng bảng này để claim thắng label-cost so với nhóm distilled.
+- ⇒ **Câu bán đúng:** *"Với nhãn point-level (không một mask nào ở target domain) + một foundation teacher đông lạnh, student 1.9M đạt ~70% accuracy của segmenter fully-supervised, ĐỔI LẠI có UQ calibrated mà không segmenter nào cung cấp."* Gap accuracy = **chi phí của chế độ nhãn rẻ**, không phải điểm yếu trần trụi.
+- **Bằng chứng "distillation đáng giá" (không chỉ nhãn rẻ):** ablation distilled vs GT-only same-student — distilled worst-org **0.753 > 0.711** (teacher foundation nâng conditional coverage) → đưa lên bảng chính (G.6 mục 2).
