@@ -72,3 +72,37 @@ python eval_cross_dataset.py --train_dataset pannuke --exclude_tissue colon --de
 # MAE in ra; UQ: python eval_r2_grouped.py --preds ../work/xfer_pannuke2monusac.pkl --seeds 20 (organ=_all_ -> chỉ global)
 ```
 CellViT-256: `--ckpt CellViT-256-x40.pth` (KHÔNG --nulite, KHÔNG --lkcell), `--infer_size 256`.
+
+---
+
+## BẢNG C — IN-DOMAIN PanNuke (bài test PARETO "acceptable gap") — STAGE hoá
+Đây là bài test THẬT cho câu hỏi "thua có chấp nhận được không" (gap OOD 44.68 KHÔNG phải test này).
+So student PanNuke test-fold **leak-free (MAE 3.36)** vs NuLite in-domain.
+
+**Vấn đề leak:** checkpoint NuLite = whole-PanNuke → test trên PanNuke = LEAK (best-case của NuLite, MAE thấp giả).
+→ dùng làm **CẬN TRÊN** hợp lệ, KHÔNG gọi là fair.
+
+**LUẬT QUYẾT ĐỊNH (chốt TRƯỚC khi thấy số — tránh tự bao biện):**
+- ✅ **Chấp nhận** (Pareto tốt): student MAE ≤ ~1.5× NuLite (thua ≤ 50% tương đối) — đổi 9× nhẹ là xứng.
+- ⚠️ **Xem lại hướng**: student > ~2× NuLite → trade dở.
+- 🟨 1.5–2×: vùng xám, cân thêm UQ + efficiency.
+
+**STAGE 1 (rẻ) — NuLite-leak = cận trên:**
+```bash
+# dump ảnh PanNuke test-fold (đúng test set student), làm cả 3 fold
+for F in 1 2 3; do
+  python prep_pannuke_testfold.py --cache ../work/teacher_density_pannuke_f123.pkl \
+      --test_fold $F --exclude_tissue colon --out ../work/pannuke_f${F}_png
+  python dump_cellvit_counts.py --nulite --cellvit_dir $REPO/NuLite --ckpt <NuLite-T.pth> \
+      --images_dir ../work/pannuke_f${F}_png/images --out_csv nulite_pannuke_f$F.csv --mag 40 --infer_size 256
+  python eval_heavy_count.py --gt ../work/pannuke_f${F}_png/gt_counts.csv --preds nulite_pannuke_f$F.csv --label NuLite-T-leak
+done
+```
+- **Nếu student 3.36 ≤ NuLite-leak** → student vượt cả CẬN TRÊN của NuLite → **XONG, khỏi retrain** (kết luận: student in-domain ngang/hơn NuLite mà nhẹ 9×, dù NuLite được chấp leak).
+- **Nếu student 3.36 > NuLite-leak** → mơ hồ (có thể do leak) → **STAGE 2**.
+
+**STAGE 2 (chỉ khi cần) — retrain NuLite leak-free:**
+- Dùng code official NuLite (`prepare_pannuke.py` + `train_nulite.py` + config của họ), train **2 fold / test held-out** y hệt student, cả 3 fold.
+- **Sanity-check**: PQ retrain ≈ PQ trong paper NuLite → chứng minh train đúng (không "reproduce sai").
+- Rồi dump count trên test-fold leak-free → gap SẠCH. Áp luật quyết định.
+- Chi phí: 3 fold × ~130 epoch, vài giờ–1 ngày RTX5090. Chỉ làm nếu Stage 1 mơ hồ.
