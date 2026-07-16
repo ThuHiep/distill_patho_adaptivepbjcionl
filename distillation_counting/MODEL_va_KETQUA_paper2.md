@@ -206,7 +206,75 @@ teacher **PathoSAM** (micro_sam). *Mình dùng ĐÚNG code/checkpoint official c
 Adaptive Online). Paper 2 chỉ *thay nguồn (μ,σ)*: từ "suy PB trên detector nặng" (Paper 1) → "HỌC trong student
 nhẹ distilled" (Paper 2).
 
-**Định vị Q1:** cùng student nhẹ ~1.9M, distillation của mình cho count **vừa chính xác hơn (MAE) vừa interval
-calibrated hơn + coverage theo từng mô mạnh hơn (PanNuke: bảo đảm Mondrian; NuInsSeg: giảm mạnh undercoverage)** —
-và là mô hình **duy nhất trong nhóm baseline có bất định calibrated** ở hạng cân nhỏ nhất.
-*Computationally-efficient + trustworthy counting.*
+**Định vị Q1 (đã HIỆU CHỈNH TRUNG THỰC sau UQ floor 2026-07-16 — xem mục F):** KHÔNG claim "thắng mọi metric".
+Định vị = **trustworthy counting ở giá distillation-scale**: cùng hạng cân nhẹ nhất (1.9M), R2 đạt reliability
+(worst-org/interval) **NGANG TẦM các UQ hiện đại** (Deep Ensemble/CQR/CHDQR) nhưng **rẻ hơn nhiều** (1 model,
+1 forward); vượt **rõ** cơ chế σ Poisson-Binomial của Paper 1 khi nén (R2 vs KD, p=1.9e−6) và UQ epistemic kinh
+điển (MC-Dropout thua rõ); worst-org PanNuke cao nhất mọi method (0.906). *Computationally-efficient + trustworthy.*
+
+---
+
+## F. ★★ PHÂN TÍCH ĐÓNG GÓP MỚI + KẾT QUẢ ĐẦY ĐỦ (bản chuẩn bị manuscript) — 2026-07-16
+> Gom **cái GÌ mới** (novelty, tách khỏi Paper 1 + baseline) và **TẤT CẢ số đã chạy thật**. Đây là bản để bắt đầu viết.
+
+### F.1 — 5 ĐÓNG GÓP MỚI (không phải chỉ "1 model nhẹ")
+
+**Model chỉ là phương tiện; novelty nằm ở 3 mảnh method + 2 phát hiện empirical.**
+
+| # | Đóng góp mới | Loại | Vì sao MỚI (không trùng Paper 1 / baseline) |
+|---|---|---|---|
+| **N1** | **Distributional distillation** — chưng cất foundation (PathoSAM 640M) → student 1.9M xuất CẢ PHÂN PHỐI (μ,σ) | concept | Distillation thường truyền ĐIỂM; đây distill thành PHÂN PHỐI đếm. Paper 1 KHÔNG train model (chỉ bọc detector nặng) |
+| **N2** | **σ Poisson-anchored** `σ=√(max(μ,1))·exp(clamp(log_s,−2,2))` | parameterization mới | Công thức σ mới cho count data: neo √μ (Poisson) + head học dispersion. KHÁC hẳn σ=√Σsᵢ(1−sᵢ) (Poisson-Binomial) của Paper 1. Kèm diagnostic→fix (σ thô sập dải rộng → neo → cứu) |
+| **N3** | **`detach_mu` / optimization decoupling** — tách μ khỏi NLL | kỹ thuật train mới | Gỡ **mean–variance optimization conflict** (L_nll≫L_count kéo lệch μ). Nguyên lý tổng quát cho heteroscedastic count regression, không riêng model này |
+| **N4** | **Insight: learned-σ > score-σ khi nén 1.9M** (R2 vs KD, p=1.9e−6) | phát hiện empirical | Chứng minh cơ chế σ của Paper 1 THUA khi ép vào model tí hon → phải HỌC σ. Không hiển nhiên, phải chạy mới biết |
+| **N5** | **Insight: conditional coverage TRANSFER cross-dataset dù MAE không** (8c-bis) | phát hiện empirical | worst-org NuInsSeg→PanNuke 0.897≈in-domain 0.906 dù điểm đếm lệch thang → độ tin cậy generalize ĐỘC LẬP với độ chính xác điểm |
+
+**Ranh giới (để không double-claim):** khung conformal/PB-JCI = **Paper 1** (CITE). Density-map counting (Σdensity),
+U-Net backbone = cũ. UQ floor (MC-Dropout/Ensemble/CQR/CHDQR) = code lại của người khác để làm mốc. **Đóng góp gốc = N1–N5.**
+
+### F.2 — KẾT QUẢ ĐẦY ĐỦ (đã chạy thật, leak-free, tất cả trên Mac/GitHub)
+
+**(a) R2 vs KD — cùng student 1.9M, cả 2 dataset, 3 trục** (paired-Wilcoxon p≤1.9e−6 mọi trục/fold):
+
+| Dataset | Winkler R2/KD | MAE R2/KD | worst-org R2/KD | #under R2/KD |
+|---|---|---|---|---|
+| PanNuke (no-colon, 3-fold) | 18.3/23.7 (−23%) | 3.35/3.94 (−15%) | 0.902/0.739 | 0/8 |
+| NuInsSeg (cross-fit 5-fold) | 87.7/128.6 (−32%) | 14.2/21.7 (−34%) | 0.773/0.282 | 4/6 |
+
+**(b) vs baseline recent (code official)** — PanNuke: R2-mondrian **worst-org 0.906 = CAO NHẤT** (CondConf-25 0.853,
+PCP-24 0.805, CPCP-26 0.758, R2CCP-24 0.621, KD 0.721). NuInsSeg: R2 **Winkler 87.7 tốt nhất** (~−30% vs CondConf
+125.4); CondConf nhỉnh worst-org 0.850 nhưng ĐƯỢC cấp nhãn organ.
+
+**(c) UQ floor (mới, số thật — đọc TRUNG THỰC ở mục 8c-ter file KETQUA):**
+
+| | PanNuke worst-org (mondrian) | NuInsSeg Winkler/worst (cluster) | compute |
+|---|---|---|---|
+| **R2 (ours)** | **0.906** (tie-cao nhất) | 87.7 / 0.773 | **1 model** |
+| Deep Ensemble M3 | 0.901 | 79.0 / 0.760 | 3× train |
+| CQR / CHDQR | 0.904 / 0.897 | 88.6 / 0.808 ; 74.7 / 0.689 | quantile head |
+| MC-Dropout | 0.901 | **152.0 / 0.806** (thua rõ Winkler) | 30× forward |
+
+→ R2 **ngang tầm UQ hiện đại + rẻ nhất**; MC-Dropout thua rõ. worst-org NuInsSeg nằm trong nhiễu training ~0.12.
+
+**(d) Cross-dataset transfer (mới):** NuInsSeg→PanNuke mondrian **worst-org 0.897 (0/18 under)** ≈ in-domain 0.906;
+PanNuke→NuInsSeg cluster worst 0.685 (global 0.421→0.685, Winkler 564→215). MAE tụt (19.9 & 44.9) do lệch thang count.
+
+**(e) Efficiency:** Student **1.935M / 10.49 GMACs** — nhỏ nhất (CellViT-SAM-H 699.74M, LKCell-L 163.84M,
+LSP-DETR-26 45M, NuLite-T 17.12M) + **duy nhất có UQ** trong nhóm khảo sát.
+
+**(f) Count-MAE vs heavy net** (NuInsSeg OOD, RTX 5090): Student **13.51 < teacher PathoSAM 15.80 < LKCell-L 16.54
+< CellViT-SAM-H 24.24** (thắng MAE+RMSE; caveat: MAPE 45.3% cao hơn teacher 28.3% — student kém ở ảnh ít nhân).
+
+**(g) Hardening A1–A6:** A1 coverage-curve 4α (grouping≥global mọi α); A3 per-organ Wilson CI (undercoverage là
+1 mô khó + nhiễu, không systematic); A5 σ-analysis (corr(σ,|e|)+0.40/+0.43, z-std PanNuke 1.01 calibrated);
+A2 ablation σ-mode (Poisson NLL 4.21 < NB/raw 4.58); A6 3-seed (worst-org 0.78±0.02 NuInsSeg); A4 latency 1.87ms/112MB.
+
+### F.3 — VERDICT Q1 (thẳng thắn)
+**ĐỦ submit Q1 methods/applied journal** nếu kể đúng **3 trụ** (KHÔNG overclaim "thắng mọi metric"):
+1. **Efficiency** — model nhỏ nhất CÓ UQ calibrated.
+2. **Cross-dataset transfer** — conditional coverage generalize (N5).
+3. **Reliability ngang tầm UQ hiện đại ở giá rẻ nhất** — MC-Dropout thua rõ, worst-org PanNuke cao nhất, R2>KD (=cơ chế Paper 1).
+
+**Rủi ro:** (i) R2 không trội tuyệt đối interval (Ensemble/CQR ngang) → phải framing "trustworthy ở giá rẻ", không "tốt nhất";
+(ii) chỉ 2 dataset (top-tier medical đòi ≥3 — có `monusac_converted.pkl` sẵn nếu muốn nâng chắc); (iii) NuInsSeg nhỏ/nhiễu → claim subgroup phải mềm.
+**Rủi ro lớn nhất KHÔNG phải thiếu thí nghiệm — mà là FRAMING.** Số đã đủ.
