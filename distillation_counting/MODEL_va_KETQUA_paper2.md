@@ -112,16 +112,19 @@ Sau khi có (μ, σ) leak-free, dựng khoảng bằng **split conformal** trên
 
 ## C. KẾT QUẢ (đã chạy thật, leak-free)
 
+> ⚠️ **NGUỒN CHÂN LÝ = VERIFICATION STATUS đầu KETQUA_R2 (2026-07-17).** R2 PanNuke ✅verified; R2 NuInsSeg ✅5-seed
+> (worst 0.750±0.049); **KD pkl MẤT → số KD chưa re-verify (đang retrain)**. Mọi "0.773" = seed đơn cũ, dùng **0.750±0.049**.
+
 ### C1. Kết quả CHÍNH — R2 (ours) vs KD (cùng student ~1.9M) — cả 2 dataset, 3 trục
-R2 thắng KD **SẠCH cả 3 trục trên cả 2 dataset** (⚠️ p=1.9e−6 = seed-based **pseudoreplication**, phải thay bằng **paired Wilcoxon per-image / bootstrap** cho manuscript — xem đính chính §4 KETQUA_R2):
+R2 thắng KD **SẠCH cả 3 trục trên cả 2 dataset** (⚠️ significance: dùng **paired Wilcoxon per-image / bootstrap** — số p seed-based cũ = pseudoreplication):
 
-| Dataset | Winkler R2 / KD | MAE R2 / KD | worst-org R2 / KD | #mô under R2 / KD |
+| Dataset | Winkler R2 | MAE R2 | worst-org R2 | KD (⚠️chưa re-verify) |
 |---|---|---|---|---|
-| **PanNuke** (no-colon, 3-fold) | **18.3 / 23.7** (−23%) | **3.35 / 3.94** (−15%) | **0.902** / 0.739 | **0** / 8 (/53) |
-| **NuInsSeg** (cross-fit 5-fold) | **87.7 / 128.6** (−32%) | **14.2 / 21.7** (−34%) | **0.773** / 0.282 | 4 / 6 (/27) |
+| **PanNuke** (no-colon, 3-fold) ✅ | **19.28** | **3.36** | **0.906** | 23.7 / 3.94 / 0.739 |
+| **NuInsSeg** (cross-fit, 5 seed) ✅ | **95.4±11.9** | **14.7±1.7** | **0.750±0.049** | worst 0.282 (pkl mất) |
 
-→ R2 thắng cả **accuracy (MAE)** lẫn **interval (Winkler)** lẫn **conditional coverage (worst-org)**. KD làm
-khoảng hẹp đạt marginal nhưng **conditional coverage thảm hoạ** (worst-org 0.28–0.74).
+→ R2 thắng cả **accuracy (MAE)** lẫn **interval (Winkler)** lẫn **conditional coverage (worst-org)** so với KD (worst 0.28–0.74).
+KD numbers cần retrain 5-seed để chốt gap honest.
 
 ### C2. So với BASELINE RECENT (bảng 8c) — cùng (μ,σ) leak-free, code official
 **PanNuke (trung bình 3 fold no-colon):**
@@ -138,17 +141,19 @@ khoảng hẹp đạt marginal nhưng **conditional coverage thảm hoạ** (wor
 
 **NuInsSeg (cross-fit 5-fold):**
 
+> ⚠️ CondConf/PCP chạy trên pkl R2 seed-đơn (đã mất) → cần re-eval trên pkl seed mới. R2 honest 5-seed dưới.
+
 | Method | Năm | Winkler ↓ | MAE ↓ | worst-org ↑ |
 |---|---|---|---|---|
-| **R2-cluster (ours)** | — | **87.7** | 14.2 | 0.773 |
-| CondConf-group | 2025 | 125.4 | 13.6 | **0.850** |
-| PCP | 2024 | 91.1 | 13.6 | 0.714 |
+| **R2-cluster (ours)** — 5 seed | — | **95.4±11.9** | 14.7±1.7 | 0.750±0.049 |
+| CondConf-group (⚠️pkl cũ) | 2025 | 125.4 | 13.6 | **0.850** |
+| PCP (⚠️pkl cũ) | 2024 | 91.1 | 13.6 | 0.714 |
 | CPCP | 2026 | 250.6 | 28.7 | 0.500 |
 | R2CCP | 2024 | 261.2 | 30.2 | 0.562 |
 
 **Đọc trung thực:** PanNuke — R2-mondrian worst-org **0.906 = CAO NHẤT mọi method** (kể cả CondConf-2025) mà
-**không train lại**. NuInsSeg — R2 thắng **Winkler đậm nhất** (87.7, ~−30% vs CondConf 125.4); CondConf nhỉnh
-worst-org (0.850).
+**không train lại**. NuInsSeg — R2 thắng **Winkler** (95.4±11.9, ~−24% vs CondConf 125.4, 5-seed honest); CondConf nhỉnh
+worst-org (0.850 vs R2 0.750±0.049).
 ⚠️ **SỬA claim (critique 3.3 — TRÁNH overclaim):** *KHÔNG* nói "R2 không cần organ". Các scheme conditional đạt worst-org cao
 của R2 (**mondrian** PanNuke, **cluster** NuInsSeg) ĐỀU **cần nhãn organ/tissue lúc test** (mondrian bin theo mô; cluster map
 test-sample qua `organs[i]`) — y như CondConf. Chỉ **R2-global** không cần organ nhưng worst-org yếu hơn. ⇒ Lợi thế R2 so
@@ -238,22 +243,22 @@ U-Net backbone = cũ. UQ floor (MC-Dropout/Ensemble/CQR/CHDQR) = code lại củ
 
 ### F.2 — KẾT QUẢ ĐẦY ĐỦ (đã chạy thật, leak-free, tất cả trên Mac/GitHub)
 
-**(a) R2 vs KD — cùng student 1.9M, cả 2 dataset, 3 trục** (paired-Wilcoxon p≤1.9e−6 mọi trục/fold):
+**(a) R2 vs KD — cùng student 1.9M, cả 2 dataset, 3 trục** (significance: per-image paired test, KHÔNG seed-based):
 
-| Dataset | Winkler R2/KD | MAE R2/KD | worst-org R2/KD | #under R2/KD |
+| Dataset | Winkler R2 | MAE R2 | worst-org R2 | KD (⚠️pkl mất) |
 |---|---|---|---|---|
-| PanNuke (no-colon, 3-fold) | 18.3/23.7 (−23%) | 3.35/3.94 (−15%) | 0.902/0.739 | 0/8 |
-| NuInsSeg (cross-fit 5-fold) | 87.7/128.6 (−32%) | 14.2/21.7 (−34%) | 0.773/0.282 | 4/6 |
+| PanNuke (3-fold) ✅verified | 19.28 | 3.36 | 0.906 | 23.7 / 3.94 / 0.739 |
+| NuInsSeg (5 seed) ✅ | 95.4±11.9 | 14.7±1.7 | 0.750±0.049 | worst 0.282 |
 
 **(b) vs baseline recent (code official)** — PanNuke: R2-mondrian **worst-org 0.906 = CAO NHẤT** (CondConf-25 0.853,
-PCP-24 0.805, CPCP-26 0.758, R2CCP-24 0.621, KD 0.721). NuInsSeg: R2 **Winkler 87.7 tốt nhất** (~−30% vs CondConf
-125.4); CondConf nhỉnh worst-org 0.850 nhưng ĐƯỢC cấp nhãn organ.
+PCP-24 0.805, CPCP-26 0.758, R2CCP-24 0.621, KD 0.721). NuInsSeg: R2 **Winkler 95.4±11.9** (~−24% vs CondConf
+125.4); CondConf nhỉnh worst-org 0.850. ⚠️ baseline NuInsSeg chạy trên pkl R2 cũ (mất) → re-eval trên seed mới.
 
 **(c) UQ floor (mới, số thật — đọc TRUNG THỰC ở mục 8c-ter file KETQUA):**
 
 | | PanNuke worst-org (mondrian) | NuInsSeg Winkler/worst (cluster) | compute |
 |---|---|---|---|
-| **R2 (ours)** | **0.906** (tie-cao nhất) | 87.7 / 0.773 | **1 model** |
+| **R2 (ours)** | **0.906** (tie-cao nhất) | 95.4±11.9 / 0.750±0.049 (5 seed) | **1 model** |
 | Deep Ensemble M3 | 0.901 | 79.0 / 0.760 | 3× train |
 | CQR / CHDQR | 0.904 / 0.897 | 88.6 / 0.808 ; 74.7 / 0.689 | quantile head |
 | MC-Dropout | 0.901 | **152.0 / 0.806** (thua rõ Winkler) | 30× forward |
