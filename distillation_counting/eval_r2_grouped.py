@@ -114,6 +114,60 @@ def paired_test(a, b, name):
         print(f"  {name}: Δ={diff:+.2f}  paired-t≈{t:.2f} (scipy lỗi: {type(e).__name__})")
 
 
+def per_image_paired(r2_path, kd_path, alpha, cal_ratio, min_group, n_clusters,
+                     scheme="cluster", seed=0, n_boot=10000):
+    """★ Test significance ĐÚNG (critique 3.5): đơn vị lặp = ẢNH, KHÔNG phải seed.
+    Một calibration split cố định (seed) → tính Winkler/AE PER-IMAGE cho R2 và KD trên CÙNG
+    tập ảnh test → paired Wilcoxon over images + bootstrap CI của hiệu trung bình.
+    Thay hẳn paired-per-seed (20 seeds = re-split cùng prediction cố định = pseudoreplication)."""
+    from scipy.stats import wilcoxon
+    mu, sigma, gt, organs = load_mu_sigma(r2_path)
+    kmu, ksig, kgt, _ = load_mu_sigma(kd_path)
+    organs = np.asarray(organs, dtype=object)
+    N = len(mu)
+    assert len(kmu) == N, f"R2/KD khác số ảnh ({N} vs {len(kmu)}) — không align được"
+    assert np.allclose(gt, kgt), "R2/KD GT không khớp theo index → ảnh KHÔNG align, không paired được"
+
+    rng = np.random.RandomState(1000 + seed)
+    idx = rng.permutation(N); n_cal = int(N * cal_ratio)
+    cal, tst = idx[:n_cal], idx[n_cal:]
+
+    # R2 intervals (scheme conditional) trên test
+    r_cal = np.abs(gt[cal] - mu[cal]) / sigma[cal]
+    q_g, q_org = assign_q(scheme, r_cal, organs[cal], mu[cal], gt[cal], alpha, min_group, n_clusters)
+    q_t = np.array([q_org.get(organs[i], q_g) for i in tst])
+    r_lo = np.maximum(0.0, mu[tst] - q_t * sigma[tst]); r_hi = mu[tst] + q_t * sigma[tst]
+    w_r2 = np.array([winkler_score(r_lo[j], r_hi[j], gt[tst][j], alpha) for j in range(len(tst))])
+    ae_r2 = np.abs(gt[tst] - mu[tst])
+
+    # KD-global intervals trên CÙNG split (cùng cal/tst indices)
+    kr_cal = np.abs(kgt[cal] - kmu[cal]) / ksig[cal]
+    kq = float(np.quantile(kr_cal, min(np.ceil((len(cal) + 1) * (1 - alpha)) / len(cal), 1.0), method="higher"))
+    k_lo = np.maximum(0.0, kmu[tst] - kq * ksig[tst]); k_hi = kmu[tst] + kq * ksig[tst]
+    w_kd = np.array([winkler_score(k_lo[j], k_hi[j], kgt[tst][j], alpha) for j in range(len(tst))])
+    ae_kd = np.abs(kgt[tst] - kmu[tst])
+
+    print("\n" + "=" * 78)
+    print(f"[SIGNIFICANCE — PER-IMAGE PAIRED] R2-{scheme} vs KD-global | 1 split seed={seed} "
+          f"| N_test={len(tst)} ảnh (đơn vị lặp ĐÚNG)")
+    print("=" * 78)
+    br = np.random.RandomState(2024)
+    for name, a, b in [("Winkler", w_r2, w_kd), ("AE/MAE", ae_r2, ae_kd)]:
+        d = a - b  # <0 = R2 tốt hơn
+        try:
+            stat, p = wilcoxon(a, b)
+        except Exception:
+            p = float("nan")
+        # bootstrap CI của mean(diff) over images
+        bs = np.array([d[br.randint(0, len(d), len(d))].mean() for _ in range(n_boot)])
+        lo, hi = np.percentile(bs, [2.5, 97.5])
+        sig = "R2 tốt hơn (p<0.05)" if p < 0.05 and d.mean() < 0 else ("KD tốt hơn" if d.mean() > 0 else "hòa/n.s.")
+        print(f"  {name:8}: mean Δ(R2−KD)={d.mean():+.3f}  95%CI[{lo:+.3f},{hi:+.3f}]  "
+              f"Wilcoxon p={p:.3g}  median R2/KD={np.median(a):.2f}/{np.median(b):.2f}  -> {sig}")
+    print("  (Δ<0 = R2 khoảng chặt/đếm sát hơn. CI không chứa 0 = khác biệt bền theo ẢNH, "
+          "không phải artefact của re-split seed.)")
+
+
 def run(r2_path, kd_path, alpha, seeds, cal_ratio, min_organ_imgs, min_group, n_clusters):
     mu, sigma, gt, organs = load_mu_sigma(r2_path)
     rows = {}
@@ -186,10 +240,20 @@ def main():
     ap.add_argument("--min_group", type=int, default=15, help="n_cal tối thiểu để Mondrian dùng q riêng organ")
     ap.add_argument("--n_clusters", type=int, default=3)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--per_image_test", action="store_true",
+                    help="★ chạy paired significance PER-IMAGE (critique 3.5) thay per-seed; cần --kd")
+    ap.add_argument("--pit_scheme", default="cluster", choices=["global", "mondrian", "cluster"],
+                    help="scheme R2 dùng cho per-image test (mặc định cluster = cấu hình chốt)")
     args = ap.parse_args()
     res = run(args.preds, args.kd, args.alpha, args.seeds, args.cal_ratio,
               args.min_organ_imgs, args.min_group, args.n_clusters)
     pretty(res)
+    if args.per_image_test:
+        if not args.kd:
+            print("\n[per_image_test] cần --kd để so paired per-image — bỏ qua.")
+        else:
+            per_image_paired(args.preds, args.kd, args.alpha, args.cal_ratio,
+                             args.min_group, args.n_clusters, scheme=args.pit_scheme)
     if args.out:
         json.dump(res, open(args.out, "w"), indent=2, ensure_ascii=False)
         print(f"\nĐã lưu {args.out}")
