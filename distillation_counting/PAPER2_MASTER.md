@@ -22,10 +22,10 @@
 Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-seed đúng config. **Mọi "0.773" cũ = seed đơn** (nằm trong dải
 0.70–0.82); số chính thức = **0.750±0.049**. PanNuke KHÔNG ảnh hưởng (nhiều ảnh/mô → worst-org ổn định; NuInsSeg ít ảnh/organ → nhạy seed = lý do phải multi-seed).
 
-**★ TEACHER-LEAK — split chính xác (verify từ CODE patho-sam, 2026-07-17 — [[pathosam-training-data]]):** PathoSAM train PanNuke
-**fold_1+2, chừa fold_3** → **fold_3 SẠCH (teacher held-out); fold_1/2 teacher-in-domain.** Paper 2 nên **headline PanNuke fold_3 (0.905)**;
-f1/f2 (~0.906-0.908, ~bằng → leak không thổi phồng) ghi kèm. **NuInsSeg = OOD (không train) = anchor generalization sạch.**
-Paper 1 test fold_3 → sạch, colon-exclusion đúng. Xem §2.5. (README cũ "not PanNuke" SAI, đã sửa.)
+**★ SPLIT PanNuke của PathoSAM (CHỐT CỨNG, verify từ CODE patho-sam — [[pathosam-training-data]]):**
+**PathoSAM train PanNuke FOLD_1 + FOLD_2, TEST trên FOLD_3** (`get_generalist_datasets.py:80` train fold_1+2; `dataloaders.py:149` eval fold_3).
+⟹ **Đánh giá PanNuke trên FOLD_3 = SẠCH (leak-free)** — dùng dataset KHÔNG bị leak. **Paper 2 lấy fold_3 làm số PanNuke chính (worst-org 0.905).**
+**NuInsSeg + MoNuSAC không nằm trong training PathoSAM → clean OOD; NuInsSeg = anchor generalization.** Paper 1 cũng test fold_3 → sạch, loại colon đúng.
 
 ---
 
@@ -82,13 +82,12 @@ Split conformal trên score `r=|GT−μ|/σ`; 3 scheme ([eval_r2_grouped.py](eva
 - **NuInsSeg:** cross-fitting 5-fold (`--kfold 5`), ghép 665 dự đoán leak-free.
 - Teacher density chỉ dùng cho ảnh TRAIN; test chỉ so GT thật.
 
-> ⚠️ **TEACHER-LEAK — split PanNuke CHÍNH XÁC (verify từ CODE patho-sam, 2026-07-17 — xem [[pathosam-training-data]]):**
-> PathoSAM train PanNuke **fold_1+fold_2**, chừa **fold_3** (`get_generalist_datasets.py:80` = `folds=["fold_1","fold_2"]`; `dataloaders.py:149` = `folds=["fold_3"]`).
-> → **PanNuke fold_3 = SẠCH (teacher held-out); fold_1/fold_2 = teacher-in-domain (leaky).**
-> Protocol Paper 2 xoay cả 3 fold → **chỉ vòng test-fold_3 sạch**. Số f1 0.908/f2 0.906/**f3 0.905** ~bằng nhau → leak KHÔNG thổi phồng,
-> **NHƯNG headline nên lấy fold_3 (0.905) làm số SẠCH**, f1/f2 ghi kèm (robustness/in-domain).
-> **NuInsSeg = eval out-of-domain (KHÔNG train) = CLEAN OOD = anchor generalization thật.** Mọi claim generalization của Paper 2 tựa NuInsSeg.
-> (Paper 1 test đúng fold_3 → sạch, colon-exclusion đúng. Đính chính: "cả PanNuke leaky" là quá tay — chỉ fold_1/2 in-domain.)
+> ★ **SPLIT PanNuke của PathoSAM (CHỐT CỨNG — verify từ CODE patho-sam, xem [[pathosam-training-data]]):**
+> **PathoSAM train PanNuke FOLD_1 + FOLD_2, TEST trên FOLD_3** (`get_generalist_datasets.py:80` = `folds=["fold_1","fold_2"]`; `dataloaders.py:149` = `folds=["fold_3"]`).
+> ⟹ **Đánh giá PanNuke trên FOLD_3 = SẠCH** (teacher chưa thấy fold_3). **Paper 2 lấy fold_3 làm số PanNuke chính = worst-org 0.905** (MAE/Winkler theo fold_3).
+> f1/f2 chỉ ghi kèm cho robustness (là in-domain của teacher; số ~bằng f3 nên nhất quán). **KHÔNG dùng f1/f2 làm headline.**
+> **NuInsSeg = out-of-domain (KHÔNG train) = CLEAN OOD = anchor generalization thật.** Mọi claim generalization của Paper 2 tựa NuInsSeg.
+> Paper 1 cũng test fold_3 → sạch, colon-exclusion đúng.
 
 ### 2.6 Harness Bước 2 (so heavy net công bằng)
 `count_student_cost.py` (params+GMACs thop), `prep_nuinsseg_as_pannuke.py` (GT count = len(unique(mask))−nền, y hệt student),
