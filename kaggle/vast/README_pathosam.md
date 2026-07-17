@@ -2,12 +2,13 @@
 
 Goal: reproduce the PB-JCI main table with **PathoSAM** instead of weak SAM3 — proving PB-JCI Online is predictor-agnostic.
 
-⚠️ **CORRECTED 2026-07-17 (verified against arXiv 2502.00408 Table 1, p.17 — italic=train, bold=eval):**
-PathoSAM generalist (`vit_l_histopathology`, micro_sam) **TRAINING datasets** = CPM15, CPM17, Lizard, MoNuSeg,
-**PanNuke**, PUMA. **EVAL/out-of-domain** = CoNSeP, CryoNuSeg, LyNSec, **NuInsSeg**, IHC-TMA, TNBC.
+⚠️ **CORRECTED 2026-07-17 (verified against arXiv 2502.00408 §2.5 Data, p.4 — PROSE+citations, NOT font):**
+PathoSAM generalist (`vit_l_histopathology`, micro_sam) **6 TRAINING datasets** = CPM15/CPM17, Lizard, MoNuSeg,
+**PanNuke** (Gamper2019), PUMA, TNBC (Naylor2019). **8 OUT-OF-DOMAIN eval** = CoNSeP, CryoNuSeg, GlaS, LyNSeC,
+MoNuSAC, NuClick, **NuInsSeg** (Mahbod2024), lymphocyte(Wang2024).
 → **PanNuke IS in training → PanNuke = LEAKY teacher (in-domain mechanism-check, NOT clean OOD).**
-→ **NuInsSeg = clean OOD (not trained) = the leak-free anchor.** Colon still excluded (Lizard-train overlaps PanNuke-colon).
-(Previous line here said "not PanNuke / CoNSeP-trained" — WRONG, contradicted the official paper; see memory `pathosam-training-data`.)
+→ **NuInsSeg = clean OOD (not trained) = the leak-free anchor.** MoNuSAC also OOD/clean. Colon excluded (Lizard-train overlaps PanNuke-colon).
+(NOTE: Table-1 italic/bold is NOT a reliable train/eval signal — training sets are also evaluated on held-out splits; use the §2.5 prose. Old line "not PanNuke / CoNSeP-trained" was WRONG.)
 
 Trial verdict (2026-06-03): Fold-3 count MAE **2.88** (vs SAM3 ~15.7), instance-only,
 494/2722 colon to exclude → clean Fold-3 = 2228 imgs.

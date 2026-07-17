@@ -81,8 +81,8 @@ Split conformal trên score `r=|GT−μ|/σ`; 3 scheme ([eval_r2_grouped.py](eva
 - **NuInsSeg:** cross-fitting 5-fold (`--kfold 5`), ghép 665 dự đoán leak-free.
 - Teacher density chỉ dùng cho ảnh TRAIN; test chỉ so GT thật.
 
-> ⚠️ **TEACHER-LEAK (verify 2026-07-17 vs arXiv 2502.00408 Table 1 — xem [[pathosam-training-data]]):** PathoSAM generalist
-> `vit_l_histopathology` **CÓ train trên PanNuke** (∈ training-6: CPM15/CPM17/Lizard/MoNuSeg/**PanNuke**/PUMA).
+> ⚠️ **TEACHER-LEAK (verify 2026-07-17 vs arXiv 2502.00408 §2.5 Data prose — xem [[pathosam-training-data]]):** PathoSAM generalist
+> `vit_l_histopathology` **CÓ train trên PanNuke** (Gamper2019 ∈ 6 training: CPM15/17, Lizard, MoNuSeg, **PanNuke**, PUMA, TNBC).
 > → Protocol trên chỉ chặn **student-leak** (held-out fold), KHÔNG chặn **teacher-leak**.
 > **Do đó PanNuke = "in-domain MECHANISM-CHECK", KHÔNG phải OOD/generalization** (giống Paper 1 `main.tex:137`).
 > **NuInsSeg = eval out-of-domain (KHÔNG train) = CLEAN OOD = anchor leak-free thật.** Mọi claim generalization của Paper 2 tựa NuInsSeg.
