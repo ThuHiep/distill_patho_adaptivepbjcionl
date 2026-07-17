@@ -1,0 +1,607 @@
+{
+  "config": {
+    "teacher": "../data/pathosam_nuinsseg_preds.pkl",
+    "student": "../data/pathosam_nuinsseg_preds.pkl",
+    "alpha": 0.1,
+    "seeds": 20,
+    "cal_ratio": 0.5,
+    "min_organ_imgs": 10,
+    "N_images": 665,
+    "K_classes": 1,
+    "n_organs": 31,
+    "target_coverage": 0.9
+  },
+  "results": {
+    "T->T": {
+      "marginal_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "joint_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "macro_width": {
+        "mean": 61.190482937649165,
+        "std": 2.34077913919052
+      },
+      "macro_winkler": {
+        "mean": 111.63804294156516,
+        "std": 9.798456615026288
+      },
+      "mae": {
+        "mean": 17.889848700505837,
+        "std": 1.0040914507208083
+      },
+      "per_class_coverage_mean": [
+        0.8981981981981981
+      ],
+      "conditional": {
+        "per_organ": {
+          "mouse kidney": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 404,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse liver": {
+            "n_distinct_imgs": 36,
+            "n_pooled": 360,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse fat (white and brown)_subscapula": {
+            "n_distinct_imgs": 42,
+            "n_pooled": 422,
+            "joint_coverage": 0.9123222748815166,
+            "marginal_coverage": 0.9123222748815166
+          },
+          "human liver": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 399,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tongue": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 425,
+            "joint_coverage": 0.9529411764705882,
+            "marginal_coverage": 0.9529411764705882
+          },
+          "human pylorus": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 116,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human kidney": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 110,
+            "joint_coverage": 0.4818181818181818,
+            "marginal_coverage": 0.4818181818181818
+          },
+          "mouse heart": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 302,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human epiglottis": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 103,
+            "joint_coverage": 0.7378640776699029,
+            "marginal_coverage": 0.7378640776699029
+          },
+          "human salivory gland": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 446,
+            "joint_coverage": 0.9618834080717489,
+            "marginal_coverage": 0.9618834080717489
+          },
+          "human pancreas": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 445,
+            "joint_coverage": 0.9640449438202248,
+            "marginal_coverage": 0.9640449438202248
+          },
+          "human oesophagus": {
+            "n_distinct_imgs": 47,
+            "n_pooled": 466,
+            "joint_coverage": 0.9313304721030042,
+            "marginal_coverage": 0.9313304721030042
+          },
+          "mouse muscle_tibia": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 290,
+            "joint_coverage": 0.9586206896551724,
+            "marginal_coverage": 0.9586206896551724
+          },
+          "human melanoma": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 101,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human spleen": {
+            "n_distinct_imgs": 34,
+            "n_pooled": 315,
+            "joint_coverage": 0.7047619047619048,
+            "marginal_coverage": 0.7047619047619048
+          },
+          "human placenta": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 405,
+            "joint_coverage": 0.8296296296296296,
+            "marginal_coverage": 0.8296296296296296
+          },
+          "human lung": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 111,
+            "joint_coverage": 0.972972972972973,
+            "marginal_coverage": 0.972972972972973
+          },
+          "human peritoneum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 120,
+            "joint_coverage": 0.9583333333333334,
+            "marginal_coverage": 0.9583333333333334
+          },
+          "human rectum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tonsile": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 110,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human jejunum": {
+            "n_distinct_imgs": 10,
+            "n_pooled": 97,
+            "joint_coverage": 0.4948453608247423,
+            "marginal_coverage": 0.4948453608247423
+          },
+          "human bladder": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 121,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cerebellum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 0.908256880733945,
+            "marginal_coverage": 0.908256880733945
+          },
+          "human umbilical cord": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 105,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human testis": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 124,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cardia": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 125,
+            "joint_coverage": 0.904,
+            "marginal_coverage": 0.904
+          },
+          "human brain": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 115,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          }
+        },
+        "worst_organ": "human kidney",
+        "worst_organ_coverage": 0.4818181818181818,
+        "best_organ_coverage": 1.0,
+        "organ_coverage_gap": 0.5181818181818182,
+        "n_organs_undercovered": 5,
+        "n_organs_eval": 27
+      }
+    },
+    "T->S": {
+      "marginal_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "joint_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "macro_width": {
+        "mean": 61.190482937649165,
+        "std": 2.34077913919052
+      },
+      "macro_winkler": {
+        "mean": 111.63804294156516,
+        "std": 9.798456615026288
+      },
+      "mae": {
+        "mean": 17.889848700505837,
+        "std": 1.0040914507208083
+      },
+      "per_class_coverage_mean": [
+        0.8981981981981981
+      ],
+      "conditional": {
+        "per_organ": {
+          "mouse kidney": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 404,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse liver": {
+            "n_distinct_imgs": 36,
+            "n_pooled": 360,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse fat (white and brown)_subscapula": {
+            "n_distinct_imgs": 42,
+            "n_pooled": 422,
+            "joint_coverage": 0.9123222748815166,
+            "marginal_coverage": 0.9123222748815166
+          },
+          "human liver": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 399,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tongue": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 425,
+            "joint_coverage": 0.9529411764705882,
+            "marginal_coverage": 0.9529411764705882
+          },
+          "human pylorus": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 116,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human kidney": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 110,
+            "joint_coverage": 0.4818181818181818,
+            "marginal_coverage": 0.4818181818181818
+          },
+          "mouse heart": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 302,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human epiglottis": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 103,
+            "joint_coverage": 0.7378640776699029,
+            "marginal_coverage": 0.7378640776699029
+          },
+          "human salivory gland": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 446,
+            "joint_coverage": 0.9618834080717489,
+            "marginal_coverage": 0.9618834080717489
+          },
+          "human pancreas": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 445,
+            "joint_coverage": 0.9640449438202248,
+            "marginal_coverage": 0.9640449438202248
+          },
+          "human oesophagus": {
+            "n_distinct_imgs": 47,
+            "n_pooled": 466,
+            "joint_coverage": 0.9313304721030042,
+            "marginal_coverage": 0.9313304721030042
+          },
+          "mouse muscle_tibia": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 290,
+            "joint_coverage": 0.9586206896551724,
+            "marginal_coverage": 0.9586206896551724
+          },
+          "human melanoma": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 101,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human spleen": {
+            "n_distinct_imgs": 34,
+            "n_pooled": 315,
+            "joint_coverage": 0.7047619047619048,
+            "marginal_coverage": 0.7047619047619048
+          },
+          "human placenta": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 405,
+            "joint_coverage": 0.8296296296296296,
+            "marginal_coverage": 0.8296296296296296
+          },
+          "human lung": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 111,
+            "joint_coverage": 0.972972972972973,
+            "marginal_coverage": 0.972972972972973
+          },
+          "human peritoneum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 120,
+            "joint_coverage": 0.9583333333333334,
+            "marginal_coverage": 0.9583333333333334
+          },
+          "human rectum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tonsile": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 110,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human jejunum": {
+            "n_distinct_imgs": 10,
+            "n_pooled": 97,
+            "joint_coverage": 0.4948453608247423,
+            "marginal_coverage": 0.4948453608247423
+          },
+          "human bladder": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 121,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cerebellum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 0.908256880733945,
+            "marginal_coverage": 0.908256880733945
+          },
+          "human umbilical cord": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 105,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human testis": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 124,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cardia": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 125,
+            "joint_coverage": 0.904,
+            "marginal_coverage": 0.904
+          },
+          "human brain": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 115,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          }
+        },
+        "worst_organ": "human kidney",
+        "worst_organ_coverage": 0.4818181818181818,
+        "best_organ_coverage": 1.0,
+        "organ_coverage_gap": 0.5181818181818182,
+        "n_organs_undercovered": 5,
+        "n_organs_eval": 27
+      }
+    },
+    "S->S": {
+      "marginal_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "joint_coverage": {
+        "mean": 0.8981981981981981,
+        "std": 0.023795838241030064
+      },
+      "macro_width": {
+        "mean": 61.190482937649165,
+        "std": 2.34077913919052
+      },
+      "macro_winkler": {
+        "mean": 111.63804294156516,
+        "std": 9.798456615026288
+      },
+      "mae": {
+        "mean": 17.889848700505837,
+        "std": 1.0040914507208083
+      },
+      "per_class_coverage_mean": [
+        0.8981981981981981
+      ],
+      "conditional": {
+        "per_organ": {
+          "mouse kidney": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 404,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse liver": {
+            "n_distinct_imgs": 36,
+            "n_pooled": 360,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "mouse fat (white and brown)_subscapula": {
+            "n_distinct_imgs": 42,
+            "n_pooled": 422,
+            "joint_coverage": 0.9123222748815166,
+            "marginal_coverage": 0.9123222748815166
+          },
+          "human liver": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 399,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tongue": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 425,
+            "joint_coverage": 0.9529411764705882,
+            "marginal_coverage": 0.9529411764705882
+          },
+          "human pylorus": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 116,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human kidney": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 110,
+            "joint_coverage": 0.4818181818181818,
+            "marginal_coverage": 0.4818181818181818
+          },
+          "mouse heart": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 302,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human epiglottis": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 103,
+            "joint_coverage": 0.7378640776699029,
+            "marginal_coverage": 0.7378640776699029
+          },
+          "human salivory gland": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 446,
+            "joint_coverage": 0.9618834080717489,
+            "marginal_coverage": 0.9618834080717489
+          },
+          "human pancreas": {
+            "n_distinct_imgs": 44,
+            "n_pooled": 445,
+            "joint_coverage": 0.9640449438202248,
+            "marginal_coverage": 0.9640449438202248
+          },
+          "human oesophagus": {
+            "n_distinct_imgs": 47,
+            "n_pooled": 466,
+            "joint_coverage": 0.9313304721030042,
+            "marginal_coverage": 0.9313304721030042
+          },
+          "mouse muscle_tibia": {
+            "n_distinct_imgs": 28,
+            "n_pooled": 290,
+            "joint_coverage": 0.9586206896551724,
+            "marginal_coverage": 0.9586206896551724
+          },
+          "human melanoma": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 101,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human spleen": {
+            "n_distinct_imgs": 34,
+            "n_pooled": 315,
+            "joint_coverage": 0.7047619047619048,
+            "marginal_coverage": 0.7047619047619048
+          },
+          "human placenta": {
+            "n_distinct_imgs": 40,
+            "n_pooled": 405,
+            "joint_coverage": 0.8296296296296296,
+            "marginal_coverage": 0.8296296296296296
+          },
+          "human lung": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 111,
+            "joint_coverage": 0.972972972972973,
+            "marginal_coverage": 0.972972972972973
+          },
+          "human peritoneum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 120,
+            "joint_coverage": 0.9583333333333334,
+            "marginal_coverage": 0.9583333333333334
+          },
+          "human rectum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human tonsile": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 110,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human jejunum": {
+            "n_distinct_imgs": 10,
+            "n_pooled": 97,
+            "joint_coverage": 0.4948453608247423,
+            "marginal_coverage": 0.4948453608247423
+          },
+          "human bladder": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 121,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cerebellum": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 109,
+            "joint_coverage": 0.908256880733945,
+            "marginal_coverage": 0.908256880733945
+          },
+          "human umbilical cord": {
+            "n_distinct_imgs": 11,
+            "n_pooled": 105,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human testis": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 124,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          },
+          "human cardia": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 125,
+            "joint_coverage": 0.904,
+            "marginal_coverage": 0.904
+          },
+          "human brain": {
+            "n_distinct_imgs": 12,
+            "n_pooled": 115,
+            "joint_coverage": 1.0,
+            "marginal_coverage": 1.0
+          }
+        },
+        "worst_organ": "human kidney",
+        "worst_organ_coverage": 0.4818181818181818,
+        "best_organ_coverage": 1.0,
+        "organ_coverage_gap": 0.5181818181818182,
+        "n_organs_undercovered": 5,
+        "n_organs_eval": 27
+      }
+    }
+  }
+}

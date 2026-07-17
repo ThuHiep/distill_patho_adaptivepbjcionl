@@ -116,8 +116,13 @@ Split conformal trên score `r=|GT−μ|/σ`; 3 scheme ([eval_r2_grouped.py](eva
 
 | Dataset | Winkler R2 | MAE R2 | worst-org R2 | KD (chưa re-verify) |
 |---|---|---|---|---|
-| **PanNuke** (no-colon, 3-fold) ✅ | **19.28** | **3.36** | **0.906** (mondrian) | 23.7 / 3.94 / 0.739 |
+| **PanNuke** (no-colon, headline fold_3) ✅ | **19.28** | **3.36** | **0.905** (fold_3, cluster) | 23.7 / 3.94 / 0.739 |
 | **NuInsSeg** (cross-fit, 5-seed) ✅ | **95.4±11.9** | **14.7±1.7** | **0.750±0.049** (cluster) | worst 0.282 |
+
+**★ PB-σ baseline PanNuke teacher (VERIFIED LOCAL 2026-07-17 từ `data/pathosam_nuinsseg_preds.pkl`, KHÔNG cần vast/train — `eval_r2_grouped.py`):**
+Teacher PathoSAM 640M PB-σ (σ=√Σsᵢ(1−sᵢ)) trên NuInsSeg, scheme **cluster n=5**: **worst-org 0.680 / Winkler 85.07 / MAE 17.89** (marg.cov 0.915).
+(global 0.482/111.64; mondrian 0.482/104.89.) So khớp-scheme với **R2 (0.750/95.4/14.7)**: **R2 thắng worst-org + MAE; teacher-PB nhỉnh Winkler (85.07<95.4)** → KHÔNG "đè mọi trục", đúng framing "R2 = cân bằng reliability-efficiency".
+**N4 thật ở COMPRESSION:** PB-σ 640M=0.680 (ổn) → nén 1.9M (KD)=0.282 (vỡ) → learned-σ 1.9M=0.750 (sống). *(json: `work/teacher_pb_grouped.json`; KD 0.282 vẫn cần retrain verify.)*
 
 PanNuke per-fold worst-org: f1 0.908 / f2 0.906 / f3 0.905 (0/18 mỗi fold). NuInsSeg 5-seed worst-org: [0.701,0.764,0.701,0.817,0.767].
 
