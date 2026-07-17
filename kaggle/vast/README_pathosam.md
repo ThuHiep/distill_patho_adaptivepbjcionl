@@ -1,10 +1,13 @@
 # PathoSAM 2nd-backbone pipeline (PB-JCI predictor-agnostic)
 
-Goal: reproduce the PB-JCI main table with **PathoSAM** (strong, PanNuke-clean backbone)
-instead of weak SAM3 — proving PB-JCI Online is predictor-agnostic.
+Goal: reproduce the PB-JCI main table with **PathoSAM** instead of weak SAM3 — proving PB-JCI Online is predictor-agnostic.
 
-PathoSAM (`vit_l_histopathology`, micro_sam) trained on CoNSeP/CPM17/Lizard/MoNuSeg/
-MoNuSAC/TNBC — **not PanNuke** → Fold-3-clean. Colon excluded (Lizard overlap).
+⚠️ **CORRECTED 2026-07-17 (verified against arXiv 2502.00408 Table 1, p.17 — italic=train, bold=eval):**
+PathoSAM generalist (`vit_l_histopathology`, micro_sam) **TRAINING datasets** = CPM15, CPM17, Lizard, MoNuSeg,
+**PanNuke**, PUMA. **EVAL/out-of-domain** = CoNSeP, CryoNuSeg, LyNSec, **NuInsSeg**, IHC-TMA, TNBC.
+→ **PanNuke IS in training → PanNuke = LEAKY teacher (in-domain mechanism-check, NOT clean OOD).**
+→ **NuInsSeg = clean OOD (not trained) = the leak-free anchor.** Colon still excluded (Lizard-train overlaps PanNuke-colon).
+(Previous line here said "not PanNuke / CoNSeP-trained" — WRONG, contradicted the official paper; see memory `pathosam-training-data`.)
 
 Trial verdict (2026-06-03): Fold-3 count MAE **2.88** (vs SAM3 ~15.7), instance-only,
 494/2722 colon to exclude → clean Fold-3 = 2228 imgs.

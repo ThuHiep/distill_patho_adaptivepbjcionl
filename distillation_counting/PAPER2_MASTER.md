@@ -22,6 +22,10 @@
 Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-seed đúng config. **Mọi "0.773" cũ = seed đơn** (nằm trong dải
 0.70–0.82); số chính thức = **0.750±0.049**. PanNuke KHÔNG ảnh hưởng (nhiều ảnh/mô → worst-org ổn định; NuInsSeg ít ảnh/organ → nhạy seed = lý do phải multi-seed).
 
+**★ TEACHER-LEAK (verify 2026-07-17 vs arXiv 2502.00408 Table 1 — [[pathosam-training-data]]):** PathoSAM `vit_l_histopathology`
+**CÓ train trên PanNuke** → **PanNuke = in-domain mechanism-check, KHÔNG phải OOD** (protocol chỉ chặn student-leak, không chặn teacher-leak).
+**NuInsSeg = eval out-of-domain (không train) = CLEAN OOD = anchor generalization thật.** Xem §2.5. (README_pathosam.md cũ ghi "not PanNuke" = SAI, đã sửa.)
+
 ---
 
 ## 1. IDENTITY & RANH GIỚI
@@ -76,6 +80,13 @@ Split conformal trên score `r=|GT−μ|/σ`; 3 scheme ([eval_r2_grouped.py](eva
 - **PanNuke:** train 2 fold → predict fold held-out (`--test_fold`), lặp 3 fold, `--exclude_tissue colon` (Lizard-overlap, y hệt P1).
 - **NuInsSeg:** cross-fitting 5-fold (`--kfold 5`), ghép 665 dự đoán leak-free.
 - Teacher density chỉ dùng cho ảnh TRAIN; test chỉ so GT thật.
+
+> ⚠️ **TEACHER-LEAK (verify 2026-07-17 vs arXiv 2502.00408 Table 1 — xem [[pathosam-training-data]]):** PathoSAM generalist
+> `vit_l_histopathology` **CÓ train trên PanNuke** (∈ training-6: CPM15/CPM17/Lizard/MoNuSeg/**PanNuke**/PUMA).
+> → Protocol trên chỉ chặn **student-leak** (held-out fold), KHÔNG chặn **teacher-leak**.
+> **Do đó PanNuke = "in-domain MECHANISM-CHECK", KHÔNG phải OOD/generalization** (giống Paper 1 `main.tex:137`).
+> **NuInsSeg = eval out-of-domain (KHÔNG train) = CLEAN OOD = anchor leak-free thật.** Mọi claim generalization của Paper 2 tựa NuInsSeg.
+> Framing đúng: PanNuke chứng minh *cơ chế chạy khi in-domain*; NuInsSeg chứng minh *tin cậy generalize dưới shift thật*.
 
 ### 2.6 Harness Bước 2 (so heavy net công bằng)
 `count_student_cost.py` (params+GMACs thop), `prep_nuinsseg_as_pannuke.py` (GT count = len(unique(mask))−nền, y hệt student),
