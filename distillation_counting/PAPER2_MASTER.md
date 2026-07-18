@@ -283,6 +283,8 @@ A1 coverage-curve 4α (grouping≥global mọi α); A3 per-organ Wilson CI (unde
 A5 σ-analysis (corr(σ,|e|)+0.40/+0.43, z-std PanNuke 1.01 calibrated); A2 σ-mode ablation (Poisson NLL 4.21 < NB/raw 4.58);
 A4 latency 1.87ms/112MB VRAM. *(A6 3-seed worst-org 0.78±0.02 → superseded bởi 5-seed leak-free 0.750±0.049.)*
 
+**A7 — Probe stain-perturbation uncertainty (2026-07-18, `probe_stain_uncertainty.py`, Kaggle GPU):** thử stain-TTA-variance (HED-jitter, Tellez 2019) làm **nguồn σ thay thế/bổ sung** → **variance LỚN (45.4% gt) nhưng KHÔNG informative**: corr(σ_stain,|err|)=**+0.17** << learned-σ corr **+0.65** (cùng test split). ⟹ **stain-sensitivity ≠ count-uncertainty**; distill teacher-stain-uncertainty KHÔNG motivated. **Design-justification cho learned heteroscedastic σ (N2)** + preempt câu hỏi reviewer *"sao không distill uncertainty của teacher / dùng stain-uncertainty?"*. Kết thúc mọi hướng add-on (UQ-floor/triage/stain-uncertainty đều âm) → paper = solid mid-Q1, viết.
+
 ---
 
 ## 5. VERDICT Q1 + 3 TRỤ
