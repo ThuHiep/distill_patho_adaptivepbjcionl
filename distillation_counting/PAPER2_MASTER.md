@@ -55,11 +55,13 @@ Hook = **label-efficiency** (count-only vs mask). FastViT = gác lại (core B).
 **Thesis:** *"Distributional Count Distillation: chưng cất PathoSAM ~640M → student 1.9M chỉ cần nhãn COUNT rẻ (KHÔNG cần instance mask
 như NuLite/CellViT), xuất PHÂN PHỐI đếm calibrated (μ,σ) — trustworthy ở giá distillation-scale."*
 
-**★ CÂU HỎI KHOA HỌC SẮC (framing chốt 2026-07-18 — dùng cho manuscript):**
-> **"Khi nén foundation model 640M → counter 1.9M, cái gì sống sót qua distillation — đếm (mean) hay bất định (uncertainty)?"**
-> Trả lời (hội tụ N2+N4+N5): **đếm distill tốt; nhưng bất định calibrated thì KHÔNG distill được — cấu trúc bất định của teacher (PB-σ) VỠ dưới nén (N4), và một σ HỌC được (Poisson-anchored, N2) khôi phục uncertainty calibrated + TRANSFER cross-dataset (N5).**
+**★ FRAMING KHOA HỌC (chốt 2026-07-18 — ĐÃ SỬA 2 lần, đây là bản đúng):**
+> ⚠️ **BỎ framing "cái gì sống sót qua nén — đếm hay bất định?"** (từng ghi, SAI): **PathoSAM KHÔNG có bất định nội tại** để "sống sót". PathoSAM là segmentation → xuất mask + điểm detection sᵢ; **PB-σ (√Σsᵢ(1−sᵢ)) là CẤU TRÚC của Paper 1** dựng từ điểm detection, KHÔNG phải output teacher. Và **cả R2 lẫn KD đều KHÔNG distill bất định của teacher**: R2 **HỌC** σ từ GT; KD áp công thức PB lên điểm của **CHÍNH student**. → Không có "teacher uncertainty" trong pipeline.
+>
+> **Framing ĐÚNG:** *"Chưng cất khả năng ĐẾM của pathology foundation model vào student 1.9M, trang bị đầu **phân phối đếm HỌC được** (μ,σ) calibrated. Bất định KHÔNG đến từ teacher — nó được HỌC (N2 Poisson-anchored); learned-σ đáng tin hơn công thức analytic PB-σ (Paper 1) khi model NHỎ (N4 — vì điểm detection của model nhỏ không đủ calibrated cho cấu trúc PB), và learned-σ này TRANSFER cross-dataset (N5)."*
+> **Câu bán sạch (không overclaim):** *"a lightweight distilled counter that provides **learned, calibrated, transferable** count uncertainty — where the analytic Poisson-Binomial uncertainty degrades at small scale."*
 
-**⚠️ CẢNH BÁO THUẬT NGỮ (tránh reject):** KHÔNG gọi phương pháp là *"distribution distillation"* — đó là khái niệm ĐÃ CÓ TÊN (Malinin et al., *Ensemble Distribution Distillation*, ICLR 2020 = distill phân phối dự đoán của ensemble/teacher). **Method này KHÔNG distill phân phối từ teacher:** μ distilled từ density teacher, **σ HỌC từ GT** (§2.3 NLL target = GT, không phải teacher; §1.1 "tự HỌC μ,σ"). Bằng chứng: baseline **KD = distill teacher PB-σ → THUA learned-σ (N4)**. ⟹ Phát biểu chính xác: *"distilled counter + **learned** calibrated distributional head"*, KHÔNG phải "distilling the distribution". Reviewer biết Malinin sẽ bắt overclaim.
+**⚠️ CẢNH BÁO THUẬT NGỮ (tránh reject):** KHÔNG gọi phương pháp là *"distribution distillation"* — khái niệm ĐÃ CÓ TÊN (Malinin et al., *Ensemble Distribution Distillation*, ICLR 2020). **σ HỌC từ GT (§2.3), KHÔNG distill từ teacher**; baseline KD (áp PB) THUA learned-σ (N4). Phát biểu: *"distilled counter + **learned** calibrated distributional head"*.
 
 ---
 
