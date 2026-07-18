@@ -42,12 +42,27 @@ data_G = build_teacher_density(None if os.path.exists(gt_cache) else build_index
                                device, gt_cache, use_gt=True)
 print(f"[gt] {gt_cache} | N={len(data_G)}")
 
-# ---- ALIGN CHECK: cùng thứ tự build_index sorted -> gt/organ khớp từng index ----
+# ---- ALIGN by IMG CONTENT: teacher cache & GT cache khác thứ tự (build_index khác lần dựng).
+#      Cả 2 resize cùng code -> img byte-identical cho cùng ảnh gốc -> map GT->teacher qua hash ảnh. ----
 assert len(data_T) == len(data_G), f"len mismatch {len(data_T)} vs {len(data_G)}"
-for i in range(len(data_T)):
+from collections import defaultdict
+buckets = defaultdict(list)
+for j, d in enumerate(data_G):
+    buckets[d["img"].tobytes()].append(j)
+order, used = [], set()
+for i, dT in enumerate(data_T):
+    cands = buckets.get(dT["img"].tobytes(), [])
+    pick = next((j for j in cands if j not in used
+                 and data_G[j]["gt"] == dT["gt"] and data_G[j]["organ"] == dT["organ"]), None)
+    if pick is None:  # fallback: cùng ảnh, chưa dùng
+        pick = next((j for j in cands if j not in used), None)
+    assert pick is not None, f"no img-match for teacher idx {i} ({dT['organ']},{dT['gt']})"
+    used.add(pick); order.append(pick)
+data_G = [data_G[j] for j in order]
+for i in range(len(data_T)):   # verify sau khi reorder
     assert data_T[i]["gt"] == data_G[i]["gt"] and data_T[i]["organ"] == data_G[i]["organ"], \
-        f"MISALIGN @ {i}: T(gt={data_T[i]['gt']},{data_T[i]['organ']}) G(gt={data_G[i]['gt']},{data_G[i]['organ']})"
-print(f"[align] OK — {len(data_T)} ảnh khớp gt+organ từng index")
+        f"MISALIGN @ {i} sau reorder"
+print(f"[align] OK — {len(data_T)} ảnh khớp img+gt+organ (map qua hash ảnh)")
 
 BUDGETS = [0.10, 0.25, 0.50, 1.00]
 SEEDS = [0, 1, 2]
