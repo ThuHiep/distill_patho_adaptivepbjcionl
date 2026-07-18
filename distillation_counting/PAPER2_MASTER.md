@@ -197,6 +197,11 @@ R2 = **phân phối tham số (μ,σ) 1-forward** — (a) đè MC-Dropout (UQ 1-
 CQR/CHDQR chỉ cho **interval cố định-α**, KHÔNG cho phân phối tái dùng/transfer. **Interval-efficiency thuần: CQR cạnh tranh — phải thừa nhận trong manuscript.**
 *(Hệ quả: UQ KHÔNG phải trục bán — xem §5; lead bằng distillation/label-efficiency/N4, UQ = "distributional calibrated, integrated, competitive-not-best".)*
 
+**★ Triage / selective-prediction (2026-07-18, `analysis_triage.py`, 0-compute trên pkl 5-seed) — cược top-tier THẤT BẠI, ghi honest:**
+Đo E-AURC (chất lượng σ-ranking, tách base-MAE): Ensemble **2.78** (5× compute) < CHDQR 3.49 < CQR 3.89 < **R2 3.96** < MC-Dropout 5.77.
+**R2 xếp 4/5** (cả AURC 8.60, MAE@80% 11.24). CQR/CHDQR cùng-1-model lọc lỗi tốt hơn R2; R2 chỉ hơn rõ MC-Dropout.
+⟹ **σ của R2 KHÔNG enable triage tốt nhất** — lần thứ 3 xác nhận UQ competitive-not-best (sau UQ-floor + N4). **KHÔNG có hook top-tier qua UQ**; chốt Q1 tầm-trung, framing = distillation/label-efficiency/compression.
+
 ### 4.4 Cross-dataset transfer (N5) — ✅ 3 dataset (CryoNuSeg thêm 2026-07-18)
 | Transfer | scheme | MAE | Winkler | cov (worst-org/marg) | #under |
 |---|---|---|---|---|---|
