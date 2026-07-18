@@ -34,8 +34,7 @@ def worst_mae(model, test_data):
     return r["conditional"]["worst_organ_coverage"], r["mae"]["mean"]
 
 
-print(f"\n{'frac':>6} {'n_lab':>6} | {'worst-org ↑':>16} | {'MAE ↓':>12}")
-print("-" * 46)
+rows = []   # (frac, nlab, wo_mean, wo_std, mae_mean, mae_std)
 for frac in BUDGETS:
     wos, maes, nlab = [], [], 0
     for s in SEEDS:
@@ -53,4 +52,17 @@ for frac in BUDGETS:
             wos.append(wo)
         maes.append(mae)
     wos, maes = np.array(wos), np.array(maes)
-    print(f"{frac:6.2f} {nlab:6d} | {wos.mean():.3f}±{wos.std():.3f}      | {maes.mean():5.2f}±{maes.std():.2f}")
+    rows.append((frac, nlab, wos.mean(), wos.std(), maes.mean(), maes.std()))
+    print(f"[done] frac={frac:.2f} n={nlab}")   # progress only
+
+# ---- FINAL TABLE (in 1 lần ở cuối, tail an toàn) + ghi file ----
+lines = [f"{'frac':>6} {'n_lab':>6} | {'worst-org (up)':>16} | {'MAE (down)':>12}",
+         "-" * 46]
+for frac, nlab, wm, ws, mm, ms in rows:
+    lines.append(f"{frac:6.2f} {nlab:6d} | {wm:.3f}+-{ws:.3f}      | {mm:5.2f}+-{ms:.2f}")
+table = "\n".join(lines)
+out = os.path.join(REPO, "distillation_counting", "label_efficiency_p1_result.txt")
+open(out, "w").write(table + "\n")
+print("\n===== LABEL-EFFICIENCY PIECE 1 (count-only) =====")
+print(table)
+print(f"\n[saved] {out}")
