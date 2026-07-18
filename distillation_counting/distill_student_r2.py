@@ -261,7 +261,9 @@ def train(data, device, epochs, ch, lr, train_idx, w_density, w_count, w_nll, be
             gt = torch.tensor([data[j]["gt"] for j in idxs], device=device, dtype=torch.float32)
             dens_S, log_sigma = model(imgs)
             out = r2_loss(dens_S, dT, log_sigma, gt, w_density, w_count, w_nll, beta, detach_mu)
-            opt.zero_grad(); out["loss"].backward(); opt.step()
+            opt.zero_grad(); out["loss"].backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)  # chống phân kỳ hiếm (β-NLL spike)
+            opt.step()
             for key in ("loss", "L_density", "L_count", "L_nll"):
                 logs[key].append(float(out[key]))
             logs["sigma"].append(float(out["sigma"].mean()))
