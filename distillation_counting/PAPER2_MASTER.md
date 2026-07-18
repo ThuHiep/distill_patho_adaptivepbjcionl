@@ -15,6 +15,7 @@
 | **CondConf/PCP NuInsSeg** | ✅ RE-EVAL 5-seed matched (2026-07-17) | CondConf 0.898±0.013 / 146.8±24.9 (over-cover); PCP 0.708±0.069 / 105.9±12.1 |
 | **KD NuInsSeg** | ✅ VERIFIED 5-seed (2026-07-18) | same-scheme §4.1: global 0.278/132/21.7, cluster 0.658/98.7/21.7; per-image sig MAE p<0.05 mọi seed, Winkler 1 seed n.s. **N4 reframe: PB-σ chỉ sập global.** pkl backup kaggle `sam3-paper2-uqkd` |
 | **UQ-floor NuInsSeg** (Ensemble/CQR/CHDQR/MC-Dropout) | ✅ VERIFIED 5-seed (2026-07-18) | cluster n=5: Ens 69.6/0.767, CQR 80.7/0.806, CHDQR 78.7/0.722, MCD 173/0.774 — **R2 KHÔNG dẫn đầu (~4/5)**, xem §4.3 |
+| **Cross-dataset N5 (3 dataset)** | ✅ CryoNuSeg thêm (2026-07-18) | NuInsSeg→CryoNuSeg marg.cov **0.967**/Winkler 503/MAE 73 (σ transfer sống); NuInsSeg↔PanNuke §4.4. MoNuSAC=boundary (scale 4× → μ sập) |
 | **Baseline PanNuke (8c)** | ✅ chạy trên pkl R2 còn sống | giữ nguyên |
 | pkl R2 5-seed | ✅ backup kaggle `hipinhththu/sam3-r2-nuinsseg-seeds` | — |
 
@@ -187,13 +188,18 @@ R2 = **phân phối tham số (μ,σ) 1-forward** — (a) đè MC-Dropout (UQ 1-
 CQR/CHDQR chỉ cho **interval cố định-α**, KHÔNG cho phân phối tái dùng/transfer. **Interval-efficiency thuần: CQR cạnh tranh — phải thừa nhận trong manuscript.**
 *(Hệ quả: UQ KHÔNG phải trục bán — xem §5; lead bằng distillation/label-efficiency/N4, UQ = "distributional calibrated, integrated, competitive-not-best".)*
 
-### 4.4 Cross-dataset transfer (N5)
-| Transfer | scheme | MAE | Winkler | worst-org | #under |
+### 4.4 Cross-dataset transfer (N5) — ✅ 3 dataset (CryoNuSeg thêm 2026-07-18)
+| Transfer | scheme | MAE | Winkler | cov (worst-org/marg) | #under |
 |---|---|---|---|---|---|
-| NuInsSeg → PanNuke | mondrian | 19.90 | 97.21 | **0.897** | **0/18** |
-| PanNuke → NuInsSeg | cluster | 44.88 | 214.83 | 0.685 | 4/27 |
+| NuInsSeg → PanNuke | mondrian | 19.90 | 97.21 | **0.897** worst-org | **0/18** |
+| PanNuke → NuInsSeg | cluster | 44.88 | 214.83 | 0.685 worst-org | 4/27 |
+| **NuInsSeg → CryoNuSeg** (OOD→OOD, dataset 3) | global | 73.2 | 503.3 | **0.967** marg | 0/1 |
 
 **Conditional coverage TRANSFER**: NuInsSeg→PanNuke worst-org 0.897 ≈ in-domain 0.906. σ distilled vẫn informative dưới shift (chiều khó: cluster kéo worst 0.42→0.685, Winkler 564→215). MAE KHÔNG transfer (lệch thang count) — ghi trung thực.
+
+**★ CryoNuSeg = dataset 3 (2026-07-18):** train NuInsSeg → predict CryoNuSeg (n=30, count mean **253**, range 85–638; clean OOD, không trong PathoSAM/Lizard training). σ **informative** (mean 32.9, std 18.3) → conformal đạt marginal cov **0.967** với interval KHÔNG vacuous (width 454 ≈ ±0.9× count); MAE 73 ≈ **29% rel** degrade graceful (count-scale khác → MAE không transfer, ghi trung thực). **⟹ σ calibrated TRANSFER sang dataset thứ 3.** (cov 0.967 hơi over target 0.90 — một phần do n=30 nhỏ → split-conformal quantile bảo thủ.)
+
+**★ Ranh giới vận hành (honest — MoNuSAC KHÔNG dùng làm số):** MoNuSAC native **1024** → resize 256 **co nhân 4×** (ngoài scale train) → μ **SẬP** (MAE 138≈mean, σ 6.5, interval vacuous ±5×; cov 0.934 rỗng). ⟹ transfer **sống khi scale-gap vừa phải** (CryoNuSeg native 512 = 2×) **, sập khi quá lớn** (MoNuSAC 4×). Đây là **điều kiện áp dụng của phương pháp** (density-head phụ thuộc nucleus scale) — ghi trung thực trong Limitations. *(pkl `work/xfer_nuinsseg2cryonuseg.pkl`, prep `prep_cryonuseg_counts.py`, backup kaggle `sam3-paper2-uqkd`.)*
 
 ### 4.5 Efficiency
 | Model | Params (M) | GMACs@256 | UQ? |
@@ -252,7 +258,7 @@ A4 latency 1.87ms/112MB VRAM. *(A6 3-seed worst-org 0.78±0.02 → superseded b�
 
 **Peer (Related Work, chỉ CITE):** HoVer-unet (ISBI24), 9M H-Optimus student (2502.19217, citation vàng), RCKD — đều distilled/lightweight nhưng **KHÔNG UQ**.
 
-**Rủi ro:** (i) ★ UQ-floor 5-seed VERIFIED: **R2 xếp ~4/5, CQR (cùng 1 model) nhỉnh cả worst-org lẫn Winkler** (§4.3) → **KHÔNG lead bằng UQ**; UQ = "distributional (μ,σ) 1-forward, đè MC-Dropout, ngang Ensemble ở 1/5 compute, cho phép transfer N5" — competitive-not-best; (ii) mới 2 dataset (top-tier đòi ≥3 → MoNuSAC sẵn); (iii) NuInsSeg nhỏ/nhiễu → claim subgroup mềm. **Rủi ro lớn nhất = FRAMING, không phải thiếu thí nghiệm.**
+**Rủi ro:** (i) ★ UQ-floor 5-seed VERIFIED: **R2 xếp ~4/5, CQR (cùng 1 model) nhỉnh cả worst-org lẫn Winkler** (§4.3) → **KHÔNG lead bằng UQ**; UQ = "distributional (μ,σ) 1-forward, đè MC-Dropout, ngang Ensemble ở 1/5 compute, cho phép transfer N5" — competitive-not-best; (ii) ✅ ĐÃ 3 dataset (NuInsSeg + PanNuke + CryoNuSeg transfer, §4.4); MoNuSAC = boundary honest (scale-gap 4×); (iii) NuInsSeg nhỏ/nhiễu → claim subgroup mềm. **Rủi ro lớn nhất = FRAMING, không phải thiếu thí nghiệm.**
 
 ---
 
@@ -261,7 +267,7 @@ A4 latency 1.87ms/112MB VRAM. *(A6 3-seed worst-org 0.78±0.02 → superseded b�
 2. ✅ Re-eval CondConf/PCP 5-seed matched.
 3. ✅ **UQ-floor regen 5-seed** (2026-07-18) — 20 pkl `work/uq_{method}_nuinsseg_s{42..46}.pkl`, `aggregate_uqfloor.py`. Số §4.3. **R2 ~4/5 → UQ không phải trục bán.** Backup kaggle `sam3-paper2-uqkd`.
 4. ✅ **KD 5-seed + per-image significance** (2026-07-18) — 5 pkl `work/student_kd_nuinsseg_cv5_s{42..46}.pkl`, `aggregate_kd.py`/`aggregate_r2.py`. Số same-scheme §4.1. **N4 CLOSED (reframe honest: PB-σ chỉ sập global).** Backup kaggle `sam3-paper2-uqkd`.
-5. ⬜ **MoNuSAC UQ-transfer** (dataset 3) — `eval_cross_dataset.py --train_dataset pannuke → predict MoNuSAC`.
+5. ✅ **Dataset 3 = CryoNuSeg transfer** (2026-07-18) — NuInsSeg→CryoNuSeg: marg.cov 0.967, Winkler 503, MAE 73 (σ transfer sống). MoNuSAC bỏ (co nhân 4× → μ sập; ghi boundary). `prep_cryonuseg_counts.py` + `xfer_nuinsseg2cryonuseg.pkl`, backup kaggle.
 6. ⬜ Ablations 4.8 re-run leak-free (thay số single-split).
 7. → **VIẾT manuscript**: đóng gói "Distributional Count Distillation under mean-variance optimization conflict", KHÔNG claim PB-JCI (=P1); hình ~4–5.
 
