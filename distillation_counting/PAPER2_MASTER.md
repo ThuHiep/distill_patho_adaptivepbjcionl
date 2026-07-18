@@ -23,6 +23,15 @@
 Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-seed đúng config. **Mọi "0.773" cũ = seed đơn** (nằm trong dải
 0.70–0.82); số chính thức = **0.750±0.049**. PanNuke KHÔNG ảnh hưởng (nhiều ảnh/mô → worst-org ổn định; NuInsSeg ít ảnh/organ → nhạy seed = lý do phải multi-seed).
 
+**★ BACKUP INVENTORY (2026-07-18 — mọi artifact đắt, đừng rebuild/mất):**
+| kaggle dataset | chứa |
+|---|---|
+| `hipinhththu/sam3-r2-nuinsseg-seeds` | R2 NuInsSeg 5-seed pkl (headline 0.750) |
+| `hipinhththu/sam3-paper2-uqkd` | 20 UQ-floor + 5 KD + 3 ch16-PanNuke pkl + teacher_targets_nuinsseg + teacher_density_nuinsseg + xfer_cryonuseg + prep_cryonuseg |
+| `hipinhththu/sam3-pannuke-density-cache` | teacher_density_pannuke_f123.pkl (3.6GB, PathoSAM output — rebuild rất tốn) |
+| `hipinhththu/monusac` | raw MoNuSAC (bỏ dùng, giữ tham khảo) |
+| git repo | PAPER2_MASTER.md + mọi script (`aggregate_*.py`, `prep_cryonuseg_counts.py`) + `data/pathosam_nuinsseg_preds.pkl` (teacher-PB) |
+
 **★ SPLIT PanNuke của PathoSAM (CHỐT CỨNG, verify từ CODE patho-sam — [[pathosam-training-data]]):**
 **PathoSAM train PanNuke FOLD_1 + FOLD_2, TEST trên FOLD_3** (`get_generalist_datasets.py:80` train fold_1+2; `dataloaders.py:149` eval fold_3).
 ⟹ **Đánh giá PanNuke trên FOLD_3 = SẠCH (leak-free)** — dùng dataset KHÔNG bị leak. **Paper 2 lấy fold_3 làm số PanNuke chính (worst-org 0.905).**
