@@ -249,7 +249,10 @@ NuInsSeg 5-seed, cluster n=5, cùng eval bảng chính (`aggregate_ablations.py`
 
 **★ 3 KẾT LUẬN LẬT (honest — số single-split cũ = leaky artifact, ĐÃ BỎ):**
 1. **detach_mu (N3) YẾU hơn claim cũ:** detach-OFF MAE **15.62** (KHÔNG phải ~18), worst-org còn **nhỉnh** (0.767>0.750). ⟹ detach cho MAE tốt hơn CHÚT (14.72 vs 15.62) nhưng đánh đổi worst-org. **KHÔNG claim "detach cứu MAE"**; giữ detach vì MAE (trục chính) + đơn giản.
-2. **ch32 KHÔNG phải sweet spot:** **ch16 (~0.5M) thắng CẢ 3 trục** NuInsSeg (0.797/86.7/13.79); ch64 tệ nhất. ⟹ chỉ dám claim sweet-spot nếu có ablation PanNuke (**CHƯA có**). Honest: ch16 đủ tốt trên NuInsSeg; ch32 headline (cân PanNuke — cần verify). *(Efficiency story CÓ THỂ mạnh hơn: 0.5M vẫn tốt.)*
+2. **Capacity 0.5M–1.9M ĐỀU tốt (ch32 KHÔNG phải "sweet spot" — ch16 ≥ ch32):** ✅ VERIFIED cả 2 dataset (2026-07-18):
+   - NuInsSeg: **ch16 (~0.5M) thắng ch32** cả 3 trục (0.797/86.7/13.79 vs 0.750/95.4/14.72); ch64 tệ nhất (0.781/169/17.1).
+   - PanNuke (mondrian avg 3 fold, `student_r2_pannuke_ch16_f{1,2,3}`): **ch16 HÒA ch32** — 0.906/18.18/3.35 vs 0.906/19.28/3.36 (ch16 nhỉnh Winkler; per-fold wo [0.907,0.903,0.909]).
+   ⟹ **Method robust theo capacity; chạy tốt ở 0.5M = nén 1280× teacher 640M.** Giữ **ch32 làm primary** (mọi thí nghiệm khác chạy ở đó — không đổi headline vì chi phí re-run), báo ch16 như "scales down to 0.5M no loss" (efficiency + robustness). ch64 overfit (nhỏ-data) → capacity lớn KHÔNG giúp.
 3. **★ Distilled vs GT-supervised — LẬT:** supervised **0.789 > distilled 0.750** (+ Winkler 92.8<95.4 + MAE 14.23<14.72) → supervised đè distilled MỌI trục. Số cũ "distilled 0.753 > supervised 0.711" = **leaky, BỎ**.
    ⟹ **Distillation KHÔNG nâng reliability so với dùng GT mask.** Giá trị distillation = **LABEL-EFFICIENCY** (reliability *cạnh tranh* mà KHÔNG cần mask), khớp core A. §4.8 = "competitive without masks", KHÔNG phải "better than masks". **KHÔNG đưa distilled>supervised lên bảng chính.**
 
