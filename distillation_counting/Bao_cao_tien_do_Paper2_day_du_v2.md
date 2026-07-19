@@ -10,7 +10,13 @@ Các pathology foundation model hiện nay có hiệu năng cao nhưng khi thíc
 
 ## 2. Hướng giải quyết
 
-Sử dụng PathoSAM (~640M tham số) làm teacher để distill sang student 1.9M tham số. Student học density map do teacher sinh (không cần mask do người vẽ), dự đoán đồng thời giá trị đếm (μ = tổng density) và độ bất định (σ). Uncertainty được mô hình hóa bằng cơ chế **Poisson-anchored sigma** (σ = √μ · exp(log s), neo theo bản chất Poisson của quá trình đếm) và được hiệu chuẩn bằng conformal prediction để tạo khoảng dự đoán có bảo đảm coverage theo nhóm mô.
+Sử dụng PathoSAM (~640M tham số) làm teacher để distill sang một student nhẹ 1.9M tham số, đặt tên **PACT** (*Poisson-Anchored Calibrated counTer*). PACT học density map do teacher sinh (không cần mask do người vẽ), dự đoán đồng thời giá trị đếm (μ = tổng density) và độ bất định (σ). Uncertainty được mô hình hóa bằng cơ chế **Poisson-anchored sigma** (σ = √μ · exp(log s), neo theo bản chất Poisson của quá trình đếm) và được hiệu chuẩn bằng conformal prediction để tạo khoảng dự đoán có bảo đảm coverage theo nhóm mô.
+
+**Ký hiệu dùng trong báo cáo:**
+
+- **PACT (ours):** student 1.9M với đầu σ **học được** từ dữ liệu (Poisson-anchored β-NLL) — phương pháp đề xuất.
+- **KD (baseline):** cùng student 1.9M nhưng lấy σ theo **công thức giải tích Poisson-Binomial (PB-σ)** tính từ điểm detection — tức cách dựng bất định của **Paper 1** áp lên student nén. Dùng làm mốc so, không phải "đối thủ".
+- **PB-σ:** Poisson-Binomial σ (Poisson-Binomial JCI) — đóng góp gốc của **Paper 1**, được Paper 2 trích dẫn làm nền.
 
 ## 3. Bằng chứng thực nghiệm
 
@@ -53,7 +59,7 @@ So với các phương pháp conformal gần đây (cùng μ, σ, đánh giá le
 
 | Method | Winkler ↓ | MAE ↓ | Worst-organ ↑ |
 |---|---|---|---|
-| **R2 (ours)** | 19.28 | **3.36** | **0.906** |
+| **PACT (ours)** | 19.28 | **3.36** | **0.906** |
 | CondConf (2025) | 18.81 | 3.37 | 0.853 |
 | PCP (2024) | 23.26 | 3.37 | 0.805 |
 | CPCP (2026) | 35.46 | 6.18 | 0.758 |
@@ -75,17 +81,17 @@ Xét riêng nhánh distilled khi tăng dần ngân sách nhãn, worst-organ cove
 
 Điều này bổ trợ cho luận điểm chính: phần khoảng tin cậy hầu như không tốn nhãn, phù hợp với bối cảnh y tế nơi nhãn khan hiếm.
 
-### 3.4 Learned uncertainty bền vững hơn analytic uncertainty khi nén mạnh
+### 3.4 Learned uncertainty phù hợp hơn cho chế độ nén (bổ trợ, không phủ định Paper 1)
 
-So sánh σ học trực tiếp từ dữ liệu (R2) với σ giải tích Poisson-Binomial (KD) trên cùng student nén nhỏ:
+Bất định giải tích Poisson-Binomial (PB-σ) là đóng góp của **Paper 1**, được thiết kế và kiểm chứng trên foundation model — nơi điểm detection được hiệu chuẩn tốt. Câu hỏi của Paper 2 là: **khi mang PB-σ đó xuống student 1.9M (đã nén), nó còn giữ hiệu chuẩn không?** So sánh trên **cùng student nén**, khác nhau ở cách lấy σ (PB-công-thức = KD, vs học-trực-tiếp = PACT):
 
-| Metric | PB-σ (KD) | Learned-σ (R2) | Cải thiện |
+| Metric | PB-σ (KD, kiểu Paper 1) | Learned-σ (PACT) | Chênh lệch |
 |---|---|---|---|
 | Worst-organ (global) | 0.278 | 0.610 | +119% |
 | Worst-organ (cluster) | 0.658 | 0.750 | +14% |
 | MAE | 21.71 | 14.72 | −32% |
 
-*Ghi chú trung thực: chênh lệch rất lớn (+119%) xuất hiện ở chế độ global — nơi σ giải tích PB sập cấu trúc; ở chế độ cluster chênh lệch thu hẹp còn +14%. Điểm cần nhấn không phải con số +119% mà là **learned-σ ổn định qua cả hai chế độ trong khi PB-σ thì không**. Đây là bằng chứng cho thấy uncertainty học được bền vững hơn uncertainty giải tích sau khi mô hình bị nén, đồng thời củng cố lựa chọn thiết kế Poisson-anchored sigma (§2).*
+**Diễn giải (quan trọng — không hạ thấp Paper 1):** PB-σ **không hề "hỏng"**. Trên foundation model nó là công cụ hợp lệ (sân nhà của Paper 1), và ngay ở đây dưới chế độ **cluster** nó vẫn tốt (chênh lệch chỉ +14%). Vấn đề chỉ xuất hiện dưới chế độ **global**: khi student bị nén không tái tạo trung thực các điểm detection mà PB-σ dựa vào, σ giải tích **mất hiệu chuẩn**. Nói cách khác, PACT **không đánh bại** Paper 1 — nó **kế thừa** Paper 1 làm nền và **vá đúng giới hạn của PB-σ trong chế độ nén** bằng một σ học được, ổn định qua cả hai scheme. Đây là quan hệ *tiếp nối và bổ sung*: Paper 1 lập nền bất định trên mô hình lớn, Paper 2 mở rộng sang mô hình nén. Kết quả này cũng củng cố lựa chọn thiết kế Poisson-anchored sigma (§2).
 
 ### 3.5 Khả năng transfer của reliability
 
@@ -104,8 +110,8 @@ Student chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M) và c
 
 - **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** distillation đạt chất lượng ngang giám sát bằng mask nhưng chỉ cần giám sát mức đếm, tiết kiệm khoảng 5–10 lần chi phí annotation *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng student 1.9M (hạ tới 0.5M) dự đoán đồng thời count và uncertainty calibrated, nhỏ nhất trong nhóm có UQ; đầu ra phân phối dẫn đầu dàn baseline conformal trên PanNuke.
-- Chỉ ra learned uncertainty bền vững hơn analytic uncertainty sau khi nén mạnh, và có khả năng transfer reliability giữa các dataset.
+- Xây dựng **PACT** — student 1.9M (hạ tới 0.5M) dự đoán đồng thời count và uncertainty calibrated, nhỏ nhất trong nhóm có UQ; đầu ra phân phối dẫn đầu dàn baseline conformal trên PanNuke.
+- Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
 
