@@ -6,7 +6,9 @@
 
 ## 1. Vấn đề nghiên cứu
 
-Các pathology foundation model hiện nay có hiệu năng cao nhưng khi thích nghi sang bài toán mới thường vẫn cần annotation mask mức instance, vốn rất tốn chi phí xây dựng. Trong khi đó, nhiều ứng dụng thực tế chỉ yêu cầu đếm số lượng tế bào. Nghiên cứu tập trung trả lời câu hỏi: **liệu có thể thích nghi foundation model sang bài toán đếm tế bào chỉ với count-level supervision (không cần mask) nhưng vẫn duy trì được độ chính xác và reliability của dự đoán?**
+Các pathology foundation model như PathoSAM đã segment được nhân tế bào và về nguyên tắc có thể đếm (đếm số instance). Tuy nhiên, khi đưa vào sử dụng thực tế chúng vướng ba rào cản: (i) **kích thước lớn** (~640M tham số) tốn tài nguyên triển khai; (ii) muốn **thích nghi sang dataset/miền mới** theo cách thông thường vẫn cần **annotation mask mức instance**, vốn rất tốn chi phí; (iii) là mô hình segmentation, chúng **không xuất độ bất định (uncertainty)** cho con số đếm. Trong khi đó nhiều ứng dụng lâm sàng chỉ cần con số đếm kèm mức độ tin cậy.
+
+Nghiên cứu tập trung trả lời câu hỏi: **liệu có thể chưng cất (distill) một pathology foundation model xuống một bộ đếm nhẹ, chỉ dùng count-level supervision (không cần mask), mà vẫn giữ được độ chính xác đếm và đồng thời bổ sung được khoảng dự đoán có độ tin cậy (calibrated uncertainty) — thứ bản thân foundation model không có?**
 
 ## 2. Hướng giải quyết
 
