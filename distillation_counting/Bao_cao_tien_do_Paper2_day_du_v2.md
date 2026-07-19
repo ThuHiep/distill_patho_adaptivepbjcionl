@@ -106,16 +106,7 @@ Bất định giải tích Poisson-Binomial (PB-σ) là đóng góp của **Pape
 
 ### 3.6 Hiệu quả mô hình
 
-PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M). So với các model đếm nhân mạnh khác, PACT vừa **nhỏ nhất**, vừa **adapt được bằng loại nhãn rẻ nhất (chỉ count)**, vừa là **model DUY NHẤT xuất uncertainty**:
-
-| Model | Params | Loại nhãn để adapt sang miền mới | Xuất UQ? |
-|---|---|---|---|
-| **PACT (ours)** | **1.9M** | **chỉ count (mức ảnh)** | **✓** |
-| NuLite-T | 17.1M | cần mask từng nhân | ✗ |
-| LKCell-L | 163.8M | cần mask từng nhân | ✗ |
-| CellViT-SAM-H | 699.7M | cần mask từng nhân | ✗ |
-
-*(Bảng này là **positioning theo kích thước & loại nhãn & khả năng UQ — KHÔNG so accuracy**: PACT được adapt trên miền đích bằng nhãn count, còn các model kia là segmentation cần mask; so MAE trực tiếp sẽ không công bằng vì khác loại giám sát. Phép so accuracy có kiểm soát nằm ở §3.1.)*
+PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M), chạy 1-forward — nhẹ để triển khai. Hiệu suất của mô hình được đánh giá bằng phép so **có kiểm soát** ở §3.1 (ngang mask-supervision cùng kiến trúc) và §3.2 (dựng khoảng dẫn đầu nhóm conformal); phần so kích thước với các model mask-heavy khác (NuLite/CellViT) để lại cho manuscript vì cần một phép so accuracy công bằng đi kèm.
 
 *Ablation dung lượng (phụ): giảm độ rộng kênh xuống cấu hình ch16 (~0.5M) không làm mất chất lượng — trên NuInsSeg còn nhỉnh, trên PanNuke hòa — cho thấy phương pháp bền theo dung lượng. Đây chỉ là kết quả ablation; cấu hình chính của PACT vẫn là 1.9M.*
 
@@ -123,7 +114,7 @@ PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M). So vớ
 
 - **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** với phép so có kiểm soát (cùng mạng PACT), distillation đạt chất lượng ngang giám sát bằng mask nhưng **chỉ cần nhãn mức-ảnh (một con số đếm)** thay vì mask từng nhân *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated. **So với các model đếm khác** (NuLite/CellViT): PACT nhỏ nhất, adapt bằng loại nhãn rẻ nhất (chỉ count), và là model duy nhất có UQ (§3.6). **So với các phương pháp UQ/conformal khác trên cùng dự đoán** (§3.2): đầu phân phối học được của PACT dựng khoảng tốt hơn trên PanNuke.
+- Xây dựng **PACT** — student gọn 1.9M (1-forward) dự đoán đồng thời count và uncertainty calibrated, chỉ cần nhãn count. **So với các phương pháp UQ/conformal khác trên cùng dự đoán** (§3.2): đầu phân phối học được của PACT dựng khoảng tốt hơn trên PanNuke.
 - Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
