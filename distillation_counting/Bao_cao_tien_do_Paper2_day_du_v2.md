@@ -104,13 +104,15 @@ Bất định giải tích Poisson-Binomial (PB-σ) là đóng góp của **Pape
 
 ### 3.6 Hiệu quả mô hình
 
-Student chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M) và có thể hạ tiếp xuống **~0.5M** (cấu hình ch16, tương đương nén ~1280 lần) mà không mất chất lượng — trên NuInsSeg còn nhỉnh, trên PanNuke hòa. Đây là mô hình nhỏ nhất trong nhóm so sánh vẫn cung cấp được khoảng dự đoán có độ tin cậy.
+PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M) — mô hình nhỏ nhất trong nhóm so sánh vẫn cung cấp được khoảng dự đoán có độ tin cậy.
+
+*Ablation dung lượng (phụ): giảm độ rộng kênh xuống cấu hình ch16 (~0.5M) không làm mất chất lượng — trên NuInsSeg còn nhỉnh, trên PanNuke hòa — cho thấy phương pháp bền theo dung lượng. Đây chỉ là kết quả ablation; cấu hình chính của PACT vẫn là 1.9M.*
 
 ## 4. Đóng góp chính của nghiên cứu
 
 - **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** distillation đạt chất lượng ngang giám sát bằng mask nhưng chỉ cần giám sát mức đếm, tiết kiệm khoảng 5–10 lần chi phí annotation *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng **PACT** — student 1.9M (hạ tới 0.5M) dự đoán đồng thời count và uncertainty calibrated, nhỏ nhất trong nhóm có UQ; đầu ra phân phối dẫn đầu dàn baseline conformal trên PanNuke.
+- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated, nhỏ nhất trong nhóm có UQ; đầu ra phân phối dẫn đầu dàn baseline conformal trên PanNuke.
 - Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
