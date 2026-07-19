@@ -123,7 +123,7 @@ PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M). So vớ
 
 - **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** với phép so có kiểm soát (cùng mạng PACT), distillation đạt chất lượng ngang giám sát bằng mask nhưng **chỉ cần nhãn mức-ảnh (một con số đếm)** thay vì mask từng nhân *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated; nhỏ nhất và dùng loại nhãn rẻ nhất trong nhóm, là model duy nhất có UQ; đầu phân phối học được dựng khoảng tốt hơn các phương pháp conformal khác trên PanNuke.
+- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated. **So với các model đếm khác** (NuLite/CellViT): PACT nhỏ nhất, adapt bằng loại nhãn rẻ nhất (chỉ count), và là model duy nhất có UQ (§3.6). **So với các phương pháp UQ/conformal khác trên cùng dự đoán** (§3.2): đầu phân phối học được của PACT dựng khoảng tốt hơn trên PanNuke.
 - Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
