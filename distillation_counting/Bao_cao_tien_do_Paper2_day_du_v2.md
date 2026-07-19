@@ -24,16 +24,16 @@ Sử dụng PathoSAM (~640M tham số) làm teacher để distill sang một stu
 
 ### 3.1 Kết quả chính — Lợi ích label-efficiency của distillation
 
-Câu hỏi cốt lõi của bài (§1) là distillation mang lại lợi ích gì so với train trực tiếp bằng mask. Để trả lời, tiến hành so sánh trực tiếp trên **cùng ngân sách ảnh** giữa hai cách giám sát: (a) **DISTILLED** — target là density của teacher cộng một giá trị đếm mỗi ảnh; (b) **SUPERVISED** — target là density dựng từ mask GT từng nhân. Cả hai học trên 10% / 25% / 50% / 100% số ảnh, đánh giá trên cùng tập test, lặp 3 seed (NuInsSeg).
+Câu hỏi cốt lõi của bài (§1) là distillation mang lại lợi ích gì so với train trực tiếp bằng mask. Để trả lời, tiến hành so sánh **có kiểm soát** trên **cùng một kiến trúc PACT, cùng data, cùng ngân sách ảnh** — chỉ khác **nguồn giám sát**: (a) **PACT (distilled)** — target là density của teacher + một giá trị đếm mỗi ảnh (chỉ cần nhãn đếm); (b) **PACT-arch (mask-supervised)** — cùng mạng đó nhưng target là density dựng từ mask GT từng nhân. Cả hai học trên 10% / 25% / 50% / 100% số ảnh, đánh giá trên cùng tập test, lặp 3 seed (NuInsSeg). *(Hai cột là cùng một mạng PACT, chỉ khác cái target — đây là phép so công bằng để tách riêng ảnh hưởng của loại giám sát.)*
 
-| Ngân sách ảnh | Distilled (Worst-org / MAE) | Supervised (Worst-org / MAE) |
+| Ngân sách ảnh | **PACT (distilled, count-only)** — Worst-org / MAE | PACT-arch (mask-supervised) — Worst-org / MAE |
 |---|---|---|
 | 10% (53 ảnh) | 0.865 / 24.26 | 0.879 / 26.09 |
 | 25% (133 ảnh) | 0.858 / 21.85 | 0.824 / 18.49 |
 | 50% (266 ảnh) | 0.840 / 20.34 | 0.830 / 17.73 |
 | 100% (532 ảnh) | 0.843 / 14.12 | 0.897 / 14.61 |
 
-Ở cùng số ảnh, hai cách cho reliability (worst-organ coverage) **không phân biệt được về mặt thống kê** và MAE tương đương (supervised nhỉnh ~2–3 nhân ở khúc giữa nhưng hòa ở hai đầu; ở 100% distilled còn thấp hơn). Nghĩa là **distillation đạt chất lượng ngang cách dùng mask**.
+Ở cùng số ảnh, hai cách cho reliability (worst-organ coverage) **không phân biệt được về mặt thống kê** và MAE tương đương (mask-supervised nhỉnh ~2–3 nhân ở khúc giữa nhưng hòa ở hai đầu; ở 100% distilled còn thấp hơn). Nghĩa là **distillation (chỉ cần nhãn đếm) đạt chất lượng ngang cách dùng mask**.
 
 Khác biệt nằm ở **LOẠI NHÃN người phải cung cấp** (trung bình mỗi ảnh có 52.8 nhân — trung vị 38; tổng 35.138 nhân trên 665 ảnh):
 
@@ -57,18 +57,18 @@ Với đầy đủ dữ liệu, student 1.9M duy trì độ chính xác đếm v
 | PanNuke | 3.36 | 19.28 | 0.906 |
 | NuInsSeg (5 seed) | 14.7 ± 1.7 | 95.4 ± 11.9 | 0.750 ± 0.049 |
 
-So với các phương pháp conformal gần đây (cùng μ, σ, đánh giá leak-free) trên PanNuke, mô hình đề xuất cho **worst-organ coverage cao nhất** trong khi nhẹ và rẻ nhất:
+**So sánh các phương pháp dựng KHOẢNG dự đoán (UQ/conformal) trên PanNuke.** ⚠️ Đây **KHÔNG phải so giữa các kiến trúc model khác nhau** (như NuLite/CellViT) — mà là các **cách dựng khoảng dự đoán** trên cùng bài đếm: CondConf/PCP bọc conformal lên chính dự đoán của PACT; CPCP/R2CCP tự fit bộ hồi quy phụ (nên MAE khác); "σ Poisson-Binomial" = cùng student nhưng lấy σ theo công thức Paper 1. Đầu ra phân phối (μ,σ) học được + scheme mondrian của PACT cho **worst-organ coverage cao nhất**:
 
-| Method | Winkler ↓ | MAE ↓ | Worst-organ ↑ |
+| Phương pháp tạo khoảng (cùng bài đếm) | Winkler ↓ | MAE ↓ | Worst-organ ↑ |
 |---|---|---|---|
-| **PACT (ours)** | 19.28 | **3.36** | **0.906** |
+| **Mondrian phân phối (ours)** | 19.28 | **3.36** | **0.906** |
 | CondConf (2025) | 18.81 | 3.37 | 0.853 |
 | PCP (2024) | 23.26 | 3.37 | 0.805 |
 | CPCP (2026) | 35.46 | 6.18 | 0.758 |
 | R2CCP (2024) | 58.40 | 5.83 | 0.621 |
-| KD (baseline) | 22.08 | 3.64 | 0.721 |
+| σ Poisson-Binomial (kiểu Paper 1) | 22.08 | 3.64 | 0.721 |
 
-Kết quả này cho thấy student rẻ-nhãn **không hề yếu** ở mặt reliability theo nhóm mô mà còn **dẫn đầu** dàn baseline mạnh.
+Kết quả này ủng hộ **đóng góp phương pháp** (đầu phân phối học được dựng khoảng tốt hơn các phương pháp conformal khác). **Caveat trung thực:** lợi thế này thấy rõ **trên PanNuke**; trên NuInsSeg (đủ dàn UQ gồm cả Ensemble/CQR) PACT chỉ ở nhóm giữa (~4/5) — nên claim là "dẫn đầu nhóm conformal *trên PanNuke*", KHÔNG tổng quát hoá thành "UQ tốt nhất mọi nơi".
 
 ### 3.3 Coverage gần như miễn phí về nhãn
 
@@ -106,17 +106,30 @@ Bất định giải tích Poisson-Binomial (PB-σ) là đóng góp của **Pape
 
 ### 3.6 Hiệu quả mô hình
 
-PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M) — mô hình nhỏ nhất trong nhóm so sánh vẫn cung cấp được khoảng dự đoán có độ tin cậy.
+PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M). So với các model đếm nhân mạnh khác, PACT vừa **nhỏ nhất**, vừa **adapt được bằng loại nhãn rẻ nhất (chỉ count)**, vừa là **model DUY NHẤT xuất uncertainty**:
+
+| Model | Params | Loại nhãn để adapt sang miền mới | Xuất UQ? |
+|---|---|---|---|
+| **PACT (ours)** | **1.9M** | **chỉ count (mức ảnh)** | **✓** |
+| NuLite-T | 17.1M | cần mask từng nhân | ✗ |
+| LKCell-L | 163.8M | cần mask từng nhân | ✗ |
+| CellViT-SAM-H | 699.7M | cần mask từng nhân | ✗ |
+
+*(Bảng này là **positioning theo kích thước & loại nhãn & khả năng UQ — KHÔNG so accuracy**: PACT được adapt trên miền đích bằng nhãn count, còn các model kia là segmentation cần mask; so MAE trực tiếp sẽ không công bằng vì khác loại giám sát. Phép so accuracy có kiểm soát nằm ở §3.1.)*
 
 *Ablation dung lượng (phụ): giảm độ rộng kênh xuống cấu hình ch16 (~0.5M) không làm mất chất lượng — trên NuInsSeg còn nhỉnh, trên PanNuke hòa — cho thấy phương pháp bền theo dung lượng. Đây chỉ là kết quả ablation; cấu hình chính của PACT vẫn là 1.9M.*
 
 ## 4. Đóng góp chính của nghiên cứu
 
-- **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** distillation đạt chất lượng ngang giám sát bằng mask nhưng chỉ cần giám sát mức đếm, tiết kiệm khoảng 5–10 lần chi phí annotation *(đóng góp trung tâm)*.
+- **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** với phép so có kiểm soát (cùng mạng PACT), distillation đạt chất lượng ngang giám sát bằng mask nhưng **chỉ cần nhãn mức-ảnh (một con số đếm)** thay vì mask từng nhân *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated, nhỏ nhất trong nhóm có UQ; đầu ra phân phối dẫn đầu dàn baseline conformal trên PanNuke.
+- Xây dựng **PACT** — student 1.9M dự đoán đồng thời count và uncertainty calibrated; nhỏ nhất và dùng loại nhãn rẻ nhất trong nhóm, là model duy nhất có UQ; đầu phân phối học được dựng khoảng tốt hơn các phương pháp conformal khác trên PanNuke.
 - Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
 
-Kết quả hiện tại cho thấy hoàn toàn khả thi để chuyển tri thức từ pathology foundation model sang một bộ đếm tế bào rất nhỏ, chỉ cần supervision mức đếm thay vì mask annotation, mà vẫn đạt độ chính xác và reliability tương đương giám sát bằng mask với chi phí nhãn thấp hơn nhiều lần. Toàn bộ thí nghiệm đã hoàn tất; bước tiếp theo là hoàn thiện manuscript theo hướng *label-efficient foundation-model adaptation for trustworthy cell counting*, phù hợp cho một bài báo Q1.
+Kết quả hiện tại cho thấy hoàn toàn khả thi để chuyển tri thức từ pathology foundation model sang một bộ đếm tế bào rất nhỏ, chỉ cần supervision mức đếm (một con số) thay vì mask từng nhân, mà vẫn đạt độ chính xác và reliability tương đương giám sát bằng mask. Đóng góp là **một gói mạch lạc**: model tí hon (1.9M) + chỉ cần nhãn đếm + có uncertainty calibrated, với phép so label-efficiency có kiểm soát (§3.1) và đầu phân phối dựng khoảng dẫn đầu nhóm conformal trên PanNuke (§3.2). Hướng phù hợp: *label-efficient foundation-model adaptation for trustworthy cell counting* (Q1-applied).
+
+## 6. Đang thử nghiệm để mạnh hơn (chưa vào báo cáo chính)
+
+Đang thử một hướng **model-centric mới, vẫn giữ tinh thần distillation**: thay vì distill từ **một** foundation model, distill từ **một hội đồng nhiều foundation model** (PathoSAM + SAM3 + NuLite + LKCell) và lấy **sự bất đồng giữa chúng làm nguồn uncertainty (epistemic)**. Kết quả thăm dò ban đầu tích cực: bất đồng của hội đồng tương quan với lỗi ngang với σ hiện tại. Nếu thí nghiệm đầy đủ cho thấy nguồn uncertainty này (hoặc kết hợp với σ hiện có) **cải thiện độ tin cậy**, đây sẽ là một đóng góp model mạnh hơn. *(Đang chạy — chưa đưa vào kết quả chính vì cần kiểm chứng bằng coverage sau hiệu chuẩn.)*
