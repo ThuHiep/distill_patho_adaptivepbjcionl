@@ -57,20 +57,20 @@ Với đầy đủ dữ liệu, student 1.9M duy trì độ chính xác đếm v
 | PanNuke | 3.36 | 19.28 | 0.906 |
 | NuInsSeg (5 seed) | 14.7 ± 1.7 | 95.4 ± 11.9 | 0.750 ± 0.049 |
 
-**So sánh reliability với các phương pháp UQ khác — CÙNG baseline trên CẢ HAI dataset.** ⚠️ Đây **KHÔNG phải so giữa các kiến trúc model khác nhau** (NuLite/CellViT), mà là **các cách tạo uncertainty/khoảng dự đoán** trên cùng bài đếm (một số dùng chính dự đoán của PACT, một số như Ensemble/MC-Dropout tốn thêm compute). Bảng dưới là **worst-organ coverage ↑** (cao = tốt), cùng một dàn baseline trên cả PanNuke lẫn NuInsSeg:
+**So sánh reliability giữa các CÁCH TẠO UNCERTAINTY — TẤT CẢ đều trên cùng backbone PACT 1.9M.** ⚠️ Đây **KHÔNG phải so giữa các model khác nhau**; mọi dòng đều là **cùng một mạng PACT**, chỉ khác *cách sinh ra khoảng/độ bất định* (Ensemble = 5 bản PACT; MC-Dropout = PACT + dropout N lần; các phương pháp conformal = bọc lên dự đoán của PACT). Bảng dưới là **worst-organ coverage ↑** (cao = tốt), cùng dàn phương pháp trên cả PanNuke lẫn NuInsSeg:
 
-| Phương pháp UQ | Chi phí chạy | PanNuke ↑ | NuInsSeg ↑ |
+| Cách tạo uncertainty (đều trên PACT 1.9M) | Chi phí chạy | PanNuke ↑ | NuInsSeg ↑ |
 |---|---|---|---|
-| **PACT (ours)** | **1 forward, 1.9M** | **0.906** | 0.750 |
-| CQR (2019) | 1 model | 0.904 | **0.806** |
-| Ensemble (2017) | **5× model** | 0.901 | 0.767 |
+| **Learned σ phân phối + mondrian (ours)** | **1 forward** | **0.906** | 0.750 |
+| CQR (2019) | 1 forward | 0.904 | **0.806** |
+| Ensemble (2017) | **5× forward (5 bản)** | 0.901 | 0.767 |
 | MC-Dropout (2016) | N forward | 0.901 | 0.774 |
-| CHDQR | 1 model | 0.897 | 0.722 |
-| CondConf (2025) | 1 model | 0.853 | 0.898\* |
-| PCP (2024) | 1 model | 0.805 | 0.708 |
-| CPCP (2026) | 1 model | 0.758 | — |
-| R2CCP (2024) | 1 model | 0.621 | — |
-| KD (σ Poisson-Binomial, kiểu Paper 1) | 1 forward | 0.721 | 0.658 |
+| CHDQR | 1 forward | 0.897 | 0.722 |
+| CondConf (2025) | 1 forward | 0.853 | 0.898\* |
+| PCP (2024) | 1 forward | 0.805 | 0.708 |
+| CPCP (2026) | 1 forward | 0.758 | — |
+| R2CCP (2024) | 1 forward | 0.621 | — |
+| σ Poisson-Binomial (kiểu Paper 1) | 1 forward | 0.721 | 0.658 |
 
 \*CondConf trên NuInsSeg **over-cover** (nới khoảng gấp đôi, Winkler tệ +54%) → 0.898 là "ảo", không phải khoảng hiệu quả.
 **—** = chưa đánh giá được trên NuInsSeg (pkl không lưu feature mà CPCP/R2CCP cần) — **không phải điểm kém của method**; sẽ chạy bổ sung khi cần.
@@ -80,9 +80,9 @@ Với đầy đủ dữ liệu, student 1.9M duy trì độ chính xác đếm v
 - **NuInsSeg:** PACT 0.750 → **CQR 0.806 thắng rõ.**
 - → **CQR là đối thủ mạnh & nhất quán nhất** (≈PACT ở PanNuke, hơn PACT ở NuInsSeg). PACT **không** phải "UQ tốt nhất mọi nơi".
 
-→ **Lợi thế THẬT của PACT ở bảng này = CHI PHÍ CHẠY:** cho cả phân phối (μ,σ) trong **1 forward, 1.9M**, trong khi Ensemble tốn 5×, MC-Dropout N-pass, CQR/CHDQR cần train quantile riêng. Tức *reliability gần nhóm tốt nhất mà rẻ nhất để chạy* — chứ chưa phải reliability dẫn đầu.
+→ **Đọc đúng về "lợi thế" (không tự tô):** PACT chỉ rẻ hơn ở inference so với **Ensemble (5×)** và **MC-Dropout (N-pass)**. So với **CQR** — đối thủ thật — thì CQR **cũng chỉ 1 forward**, nên PACT **không rẻ hơn CQR mà coverage còn thua** (NuInsSeg 0.750 < 0.806). Khác biệt thật của PACT với CQR **không phải compute hay coverage**, mà là **loại đầu ra**: PACT cho cả **phân phối (μ,σ) tái dùng được** → transfer sang dataset khác không cần train lại (§3.5) và tích hợp "miễn phí" vào distillation; còn CQR chỉ cho **khoảng cố định-α**, không phải phân phối. ⟹ **UQ của PACT hiện competitive-not-best về coverage**; điểm riêng nằm ở *phân phối + transfer được*, chưa phải "tốt nhất".
 
-> **Cách giải quyết đang thử = multi-teacher (§6).** σ hiện tại học "chay" từ GT. Nếu distill từ **nhiều foundation model** và lấy **bất đồng giữa chúng làm σ epistemic**, mục tiêu là đẩy PACT **vượt CQR** (đối thủ thật) trên NuInsSeg — worst-org 0.750 → trên 0.806, đặc biệt ở worst-organ và transfer — biến UQ từ "competitive-but-cheapest" thành **dẫn đầu thật sự**.
+> **Cách giải quyết đang thử = multi-teacher (§6).** σ hiện tại học "chay" từ GT. Nếu distill từ **nhiều foundation model** và lấy **bất đồng giữa chúng làm σ epistemic**, mục tiêu là đẩy PACT **vượt CQR** (đối thủ thật) trên NuInsSeg — worst-org 0.750 → trên 0.806, đặc biệt ở worst-organ và transfer — biến UQ từ "competitive" thành **dẫn đầu thật sự về coverage** (chứ hiện điểm riêng mới chỉ là phân phối/transfer).
 
 ### 3.3 Coverage gần như miễn phí về nhãn
 
@@ -128,12 +128,12 @@ PACT chỉ **1.935M tham số** (nén ~330 lần so với teacher 640M), chạy 
 
 - **Chứng minh bằng thực nghiệm lợi ích label-efficiency:** với phép so có kiểm soát (cùng mạng PACT), distillation đạt chất lượng ngang giám sát bằng mask nhưng **chỉ cần nhãn mức-ảnh (một con số đếm)** thay vì mask từng nhân *(đóng góp trung tâm)*.
 - Đề xuất hướng thích nghi pathology foundation model cho cell counting chỉ với count-level supervision.
-- Xây dựng **PACT** — student gọn 1.9M (1-forward) dự đoán đồng thời count và uncertainty calibrated, chỉ cần nhãn count. **Reliability (§3.2):** gần nhóm UQ tốt nhất (≈CQR/Ensemble ở PanNuke) với **chi phí chạy rẻ nhất** (1 forward vs Ensemble 5×/MC-Dropout N-pass); còn khoảng cách với CQR trên NuInsSeg là chỗ đang cải thiện (§6).
+- Xây dựng **PACT** — student gọn 1.9M (1-forward) dự đoán đồng thời count và **phân phối (μ,σ) calibrated**, chỉ cần nhãn count. **Reliability (§3.2):** competitive (≈CQR/Ensemble ở PanNuke, thua CQR ở NuInsSeg); điểm riêng = đầu ra **phân phối tái dùng được → transfer cross-dataset** (§3.5) + rẻ hơn hẳn Ensemble/MC-Dropout, khác với CQR chỉ cho khoảng cố định-α. Khoảng cách coverage với CQR là chỗ đang cải thiện (§6).
 - Kế thừa PB-σ của Paper 1 làm nền và **chỉ ra giới hạn của nó dưới chế độ nén**, đề xuất learned Poisson-anchored σ ổn định qua các scheme; reliability còn transfer được giữa các dataset.
 
 ## 5. Kết luận hiện tại
 
-Kết quả hiện tại cho thấy hoàn toàn khả thi để chuyển tri thức từ pathology foundation model sang một bộ đếm tế bào rất nhỏ, chỉ cần supervision mức đếm (một con số) thay vì mask từng nhân, mà vẫn đạt độ chính xác và reliability tương đương giám sát bằng mask. Đóng góp là **một gói mạch lạc**: model tí hon (1.9M) + chỉ cần nhãn đếm + có uncertainty calibrated, với phép so label-efficiency có kiểm soát (§3.1) và reliability gần nhóm UQ tốt nhất mà rẻ nhất để chạy (§3.2). Hướng phù hợp: *label-efficient foundation-model adaptation for trustworthy cell counting* (Q1-applied).
+Kết quả hiện tại cho thấy hoàn toàn khả thi để chuyển tri thức từ pathology foundation model sang một bộ đếm tế bào rất nhỏ, chỉ cần supervision mức đếm (một con số) thay vì mask từng nhân, mà vẫn đạt độ chính xác và reliability tương đương giám sát bằng mask. Đóng góp là **một gói mạch lạc**: model tí hon (1.9M) + chỉ cần nhãn đếm + có uncertainty calibrated, với phép so label-efficiency có kiểm soát (§3.1) và reliability competitive kèm đầu ra phân phối tái dùng/transfer được (§3.2). Hướng phù hợp: *label-efficient foundation-model adaptation for trustworthy cell counting* (Q1-applied).
 
 ## 6. Đang thử nghiệm để mạnh hơn (chưa vào báo cáo chính)
 
