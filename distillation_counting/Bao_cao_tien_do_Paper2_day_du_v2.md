@@ -68,12 +68,12 @@ Với đầy đủ dữ liệu, student 1.9M duy trì độ chính xác đếm v
 | CHDQR | 1 model | 0.897 | 0.722 |
 | CondConf | 1 model | 0.853 | 0.898\* |
 | PCP | 1 model | 0.805 | 0.708 |
-| CPCP | 1 model | 0.758 | 0.500† |
-| R2CCP | 1 model | 0.621 | 0.562† |
+| CPCP | 1 model | 0.758 | — |
+| R2CCP | 1 model | 0.621 | — |
 | KD (σ Poisson-Binomial, kiểu Paper 1) | 1 forward | 0.721 | 0.658 |
 
 \*CondConf trên NuInsSeg **over-cover** (nới khoảng gấp đôi, Winkler tệ +54%) → 0.898 là "ảo", không phải khoảng hiệu quả.
-†CPCP/R2CCP trên NuInsSeg **chưa re-run sạch** (thiếu feature/pkl) → số không tin cậy, chỉ để đầy đủ.
+**—** = chưa đánh giá được trên NuInsSeg (pkl không lưu feature mà CPCP/R2CCP cần) — **không phải điểm kém của method**; sẽ chạy bổ sung khi cần.
 
 **Đọc trung thực (không cherry-pick):**
 - **PanNuke:** PACT 0.906 cao nhất — nhưng **CQR 0.904, Ensemble 0.901 gần như HÒA**, không phải "đè".
