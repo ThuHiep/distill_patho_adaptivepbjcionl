@@ -62,14 +62,14 @@ Với đầy đủ dữ liệu, student 1.9M duy trì độ chính xác đếm v
 | Phương pháp UQ | Chi phí chạy | PanNuke ↑ | NuInsSeg ↑ |
 |---|---|---|---|
 | **PACT (ours)** | **1 forward, 1.9M** | **0.906** | 0.750 |
-| CQR | 1 model | 0.904 | **0.806** |
-| Ensemble | **5× model** | 0.901 | 0.767 |
-| MC-Dropout | N forward | 0.901 | 0.774 |
+| CQR (2019) | 1 model | 0.904 | **0.806** |
+| Ensemble (2017) | **5× model** | 0.901 | 0.767 |
+| MC-Dropout (2016) | N forward | 0.901 | 0.774 |
 | CHDQR | 1 model | 0.897 | 0.722 |
-| CondConf | 1 model | 0.853 | 0.898\* |
-| PCP | 1 model | 0.805 | 0.708 |
-| CPCP | 1 model | 0.758 | — |
-| R2CCP | 1 model | 0.621 | — |
+| CondConf (2025) | 1 model | 0.853 | 0.898\* |
+| PCP (2024) | 1 model | 0.805 | 0.708 |
+| CPCP (2026) | 1 model | 0.758 | — |
+| R2CCP (2024) | 1 model | 0.621 | — |
 | KD (σ Poisson-Binomial, kiểu Paper 1) | 1 forward | 0.721 | 0.658 |
 
 \*CondConf trên NuInsSeg **over-cover** (nới khoảng gấp đôi, Winkler tệ +54%) → 0.898 là "ảo", không phải khoảng hiệu quả.
