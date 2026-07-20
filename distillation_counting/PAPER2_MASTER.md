@@ -252,15 +252,15 @@ Heavy net off-the-shelf (checkpoint PanNuke → OOD trên NuInsSeg, không leak)
 
 | Method | Params | R² ↑ | MAE ↓ | RMSE ↓ | MAPE ↓ |
 |---|---|---|---|---|---|
-| CellViT-SAM-H (off-the-shelf) | 699.7M | 0.444 | 21.53 | 40.25 | 39.7% |
+| CellViT-SAM-H (off-the-shelf, @1024 native) | 699.7M | 0.663 | 21.83 | 31.33 | 52.9% |
 | LKCell-L (off-the-shelf) | 163.8M | 0.448 | 20.92 | 40.10 | 37.4% |
 | NuLite-T (off-the-shelf) | 12.0M | 0.622 | 20.01 | 33.22 | 39.6% |
 | PathoSAM teacher (zero-shot) | ~640M | 0.711 | 15.80 | 29.02 | **28.3%** |
 | **PACT (ours, in-domain, 5-seed)** | **1.9M** | **0.786±0.052** | **14.74±1.53** | **24.81±3.03** | 47.6±3.4% |
 
-⚠️ CellViT-SAM-H = số @256 TẠM (đang chạy lại @1024 native SAM; smoke 256 vs 1024 lệch ~15%/ảnh → sẽ thay).
+✅ CellViT-SAM-H chạy @1024 native (fair): R² 0.663 (ở 256 chỉ 0.444 → 256 thiệt cho nó, đã bỏ). csv `cellvit_preds_1024.csv`.
 
-**PACT dẫn R²+MAE+RMSE, nhỏ nhất 6–368×; teacher giữ MAPE.** Nghịch lý đắt-mà-kém (CellViT/LKCell < NuLite trên OOD) → foundation nặng off-the-shelf transfer kém. Đóng khung = **thích-nghi-rẻ (nhãn count) vs off-the-shelf**, KHÔNG "model giỏi hơn".
+**PACT dẫn R²+MAE+RMSE, nhỏ nhất 6–368×; teacher giữ MAPE.** LKCell (164M) thua cả NuLite (12M) OOD; không model dùng-sẵn nào (kể cả CellViT 699M) gần PACT → foundation nặng off-the-shelf không transfer tốt tương ứng kích thước. Đóng khung = **thích-nghi-rẻ (nhãn count) vs off-the-shelf**, KHÔNG "model giỏi hơn".
 
 **PROVENANCE csv (backup Kaggle dataset `hipinhththu/lkcell-nulite-preds`):**
 - `nulite_preds.csv` (665) · `lkcell_preds_full.csv` (665) · CellViT `cellvit_preds_full.csv`@256 + `cellvit_preds_1024.csv`@1024 (đang chạy) · gt `gt_counts.csv`.

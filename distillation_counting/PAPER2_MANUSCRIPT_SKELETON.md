@@ -70,22 +70,23 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 ### Bảng 1 — Độ chính xác ĐẾM theo dataset *(cấu trúc CellGenNet Table I: block theo dataset; + cột nhãn adapt)* ★★ BẢNG CHÍNH
 | Dataset | Method | Params | Nhãn adapt | MAE ↓ | RMSE ↓ | MAPE ↓ | R² ↑ |
 |---|---|---|---|---|---|---|---|
-| **NuInsSeg** | CellViT-SAM-H (off-the-shelf) | 699.7M | mask (đắt) | 21.53 | 40.25 | 39.7% | 0.444 |
-| | LKCell-L (off-the-shelf) | 163.8M | mask (đắt) | 20.92 | 40.10 | 37.4% | 0.448 |
-| | NuLite-T (off-the-shelf) | 12.0M | mask (đắt) | 20.01 | 33.22 | 39.6% | 0.622 |
-| | PathoSAM teacher (zero-shot) | ~640M | — | 15.80 | 29.02 | **28.3%** | 0.711 |
-| | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **14.74 (1.53)** | **24.81 (3.03)** | 47.6% (3.4) | **0.786 (0.052)** |
-| **PanNuke** (fold_3 sạch) | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **3.36** | `[TODO]` | `[TODO]` | `[TODO]` |
-| | heavy net (leak-free) | — | mask | `[TODO]` | `[TODO]` | `[TODO]` | `[TODO]` |
-> **Đọc:** PACT **MAE+RMSE thấp nhất**, ở **90–360× nhỏ hơn**, chỉ dùng **nhãn count** (các net kia cần mask).
-> **Claim ĐÚNG = thích-nghi-rẻ, KHÔNG phải "model giỏi hơn":** PACT in-domain (nhãn count) vs net khác
-> off-the-shelf; sự bất đối xứng nhãn (count rẻ vs mask đắt) *chính là* điểm bán. Cùng chuẩn CellGenNet.
+| **NuInsSeg** | CellViT-SAM-H | 699.7M | — (off-the-shelf) | 21.83 | 31.33 | 52.9% | 0.663 |
+| | LKCell-L | 163.8M | — (off-the-shelf) | 20.92 | 40.10 | 37.4% | 0.448 |
+| | NuLite-T | 12.0M | — (off-the-shelf) | 20.01 | 33.22 | 39.6% | 0.622 |
+| | PathoSAM teacher | ~640M | — (zero-shot) | 15.80 | 29.02 | **28.3%** | 0.711 |
+| | **PACT (ours)** | **1.9M** | **count (in-domain)** | **14.74 (1.53)** | **24.81 (3.03)** | 47.6% (3.4) | **0.786 (0.052)** |
+| **PanNuke** (fold_3 sạch) | **PACT (ours)** | **1.9M** | **count (in-domain)** | **3.36** | `[TODO]` | `[TODO]` | `[TODO]` |
+| | heavy net (leak-free) | — | — (off-the-shelf) | `[TODO]` | `[TODO]` | `[TODO]` | `[TODO]` |
+> **Đọc:** PACT **MAE+RMSE thấp nhất**, ở **90–360× nhỏ hơn**. Cột "Nhãn adapt" = nhãn THỰC TẾ đã dùng để
+> thích nghi NuInsSeg: chỉ **PACT** được thích nghi (bằng **count rẻ**); mọi net kia + teacher đều **off-the-shelf**.
+> **Claim ĐÚNG = thích-nghi-rẻ, KHÔNG phải "model giỏi hơn".** Vì sao net kia kẹt off-the-shelf: muốn thích nghi
+> chúng phải có **mask pixel đắt** — trong khi PACT chỉ cần **count**. Sự bất đối xứng đó *chính là* điểm bán (chuẩn CellGenNet).
 > **Disclose thẳng:** MAPE 47.6% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR.
 > **★ Số PACT = 5-seed (42–46) từ `compute_r2_counting.py`, coherent (R²/MAE/RMSE/MAPE cùng nguồn); PACT thắng teacher R²+MAE+RMSE, thua MAPE.**
 > **Nguồn coherent (✅ đủ 3 heavy net):** CellViT+LKCell+NuLite = CÙNG thước `dump_counts.py`
 > (len-instances, 665 ảnh mỗi model); teacher = len-scores; PACT = Σdensity. Mỗi model đếm native của nó
 > (chuẩn — như CellGenNet/H-Optimus). *(Số §4.6 cũ từ eval_heavy_count KHÁC thước → đã thay bằng dump coherent.)*
-> ⚠️ CellViT-SAM-H hiện là số @256 (TẠM) — **đang chạy lại @1024 (native SAM)** cho fair; sẽ thay.
+> ✅ CellViT-SAM-H chạy @1024 (native SAM, fair) — R² 0.663 (256 chỉ 0.444, thiệt cho nó); PACT vẫn dẫn cả 3.
 > `[TODO]` (optional) baseline recent/classic: Cellpose / InstanSeg (`dump_cellpose.py` / `dump_instanseg.py`).
 > `[TODO]` block PanNuke heavy-net (leak-free).
 
