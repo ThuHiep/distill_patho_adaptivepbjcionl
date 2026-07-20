@@ -248,6 +248,26 @@ Heavy net off-the-shelf (checkpoint PanNuke → OOD trên NuInsSeg, không leak)
 
 **Đọc trung thực:** student MAE/RMSE thấp nhất bảng này + duy nhất có UQ; **NHƯNG** MAPE 45.3% > teacher 28.3% (sai tương đối cao ở ảnh ít nhân do density-sum). Khung = *in-domain-distill (rẻ) vs OOD-zero-shot* — KHÔNG phải "student giỏi hơn heavy net". Đóng góp = thích nghi rẻ + trustworthy.
 
+**★ 4.6b — BẢNG CHÍNH COHERENT (2026-07-20/21, `dump_counts.py` + `compute_r2_counting.py`, 665 ảnh, len-instances CÙNG THƯỚC; teacher=len-scores, PACT=Σdensity):** thay bảng cũ (§4.6 là `eval_heavy_count` KHÁC thước → đừng trộn).
+
+| Method | Params | R² ↑ | MAE ↓ | RMSE ↓ | MAPE ↓ |
+|---|---|---|---|---|---|
+| CellViT-SAM-H (off-the-shelf) | 699.7M | 0.444 | 21.53 | 40.25 | 39.7% |
+| LKCell-L (off-the-shelf) | 163.8M | 0.448 | 20.92 | 40.10 | 37.4% |
+| NuLite-T (off-the-shelf) | 12.0M | 0.622 | 20.01 | 33.22 | 39.6% |
+| PathoSAM teacher (zero-shot) | ~640M | 0.711 | 15.80 | 29.02 | **28.3%** |
+| **PACT (ours, in-domain, 5-seed)** | **1.9M** | **0.786±0.052** | **14.74±1.53** | **24.81±3.03** | 47.6±3.4% |
+
+⚠️ CellViT-SAM-H = số @256 TẠM (đang chạy lại @1024 native SAM; smoke 256 vs 1024 lệch ~15%/ảnh → sẽ thay).
+
+**PACT dẫn R²+MAE+RMSE, nhỏ nhất 6–368×; teacher giữ MAPE.** Nghịch lý đắt-mà-kém (CellViT/LKCell < NuLite trên OOD) → foundation nặng off-the-shelf transfer kém. Đóng khung = **thích-nghi-rẻ (nhãn count) vs off-the-shelf**, KHÔNG "model giỏi hơn".
+
+**PROVENANCE csv (backup Kaggle dataset `hipinhththu/lkcell-nulite-preds`):**
+- `nulite_preds.csv` (665) · `lkcell_preds_full.csv` (665) · CellViT `cellvit_preds_full.csv`@256 + `cellvit_preds_1024.csv`@1024 (đang chạy) · gt `gt_counts.csv`.
+- ⚠️ csv cũ `lkcell_preds.csv` = **5 ảnh HỎNG** (dấu vết `--limit 5`), ĐỪNG dùng — đã thay bằng `_full`.
+- Script SẠCH resume/flush/try-except: `dump_counts.py` (thay `dump_cellvit_counts.py`); baseline recent: `dump_instanseg.py`/`dump_cellpose.py`.
+- Manuscript skeleton (lightweight-primary, UQ-phụ): `PAPER2_MANUSCRIPT_SKELETON.md`.
+
 ### 4.7 Annotation-cost (lá chắn label-efficiency)
 | Method | Teacher | Nhãn TARGET cần | Độ mịn | Output | UQ | Params |
 |---|---|---|---|---|---|---|
