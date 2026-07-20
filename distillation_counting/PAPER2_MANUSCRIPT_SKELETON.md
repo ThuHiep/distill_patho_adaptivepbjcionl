@@ -74,13 +74,14 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 | | LKCell-L (off-the-shelf) | 163.8M | mask (đắt) | 16.54 | 28.07 | 38.8% | `[TODO]` |
 | | NuLite-T (off-the-shelf) | 12.0M | mask (đắt) | `[TODO]` | `[TODO]` | `[TODO]` | `[TODO]` |
 | | PathoSAM teacher (zero-shot) | ~640M | — | 15.80 | 29.02 | **28.3%** | 0.711 |
-| | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **14.7 (1.7)** | **22.61** | 45.3% | `[TODO]` |
+| | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **14.74 (1.53)** | **24.81 (3.03)** | 47.6% (3.4) | **0.786 (0.052)** |
 | **PanNuke** (fold_3 sạch) | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **3.36** | `[TODO]` | `[TODO]` | `[TODO]` |
 | | heavy net (leak-free) | — | mask | `[TODO]` | `[TODO]` | `[TODO]` | `[TODO]` |
 > **Đọc:** PACT **MAE+RMSE thấp nhất**, ở **90–360× nhỏ hơn**, chỉ dùng **nhãn count** (các net kia cần mask).
 > **Claim ĐÚNG = thích-nghi-rẻ, KHÔNG phải "model giỏi hơn":** PACT in-domain (nhãn count) vs net khác
 > off-the-shelf; sự bất đối xứng nhãn (count rẻ vs mask đắt) *chính là* điểm bán. Cùng chuẩn CellGenNet.
-> **Disclose thẳng:** MAPE 45.3% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR.
+> **Disclose thẳng:** MAPE 47.6% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR.
+> **★ Số PACT = 5-seed (42–46) từ `compute_r2_counting.py`, coherent (R²/MAE/RMSE/MAPE cùng nguồn); PACT thắng teacher R²+MAE+RMSE, thua MAPE.**
 > `[TODO]` cột R² cả bảng (chuẩn H-Optimus, tính từ preds) · NuLite-T · block PanNuke heavy-net leak-free.
 
 ### Bảng 2 — Hiệu quả tính toán *(H-Optimus Table 4 + cột thu-nhỏ×; + FLOPs/latency họ KHÔNG có)*
