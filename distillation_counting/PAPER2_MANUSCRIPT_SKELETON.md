@@ -70,9 +70,9 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 ### Bảng 1 — Độ chính xác ĐẾM theo dataset *(cấu trúc CellGenNet Table I: block theo dataset; + cột nhãn adapt)* ★★ BẢNG CHÍNH
 | Dataset | Method | Params | Nhãn adapt | MAE ↓ | RMSE ↓ | MAPE ↓ | R² ↑ |
 |---|---|---|---|---|---|---|---|
-| **NuInsSeg** | CellViT-SAM-H (off-the-shelf) | 699.7M | mask (đắt) | 24.24 | 34.74 | 56.9% | `[TODO]` |
-| | LKCell-L (off-the-shelf) | 163.8M | mask (đắt) | 16.54 | 28.07 | 38.8% | `[TODO]` |
-| | NuLite-T (off-the-shelf) | 12.0M | mask (đắt) | `[TODO]` | `[TODO]` | `[TODO]` | `[TODO]` |
+| **NuInsSeg** | CellViT-SAM-H (off-the-shelf) | 699.7M | mask (đắt) | 21.53 | 40.25 | 39.7% | 0.444 |
+| | LKCell-L (off-the-shelf) | 163.8M | mask (đắt) | 20.92 | 40.10 | 37.4% | 0.448 |
+| | NuLite-T (off-the-shelf) | 12.0M | mask (đắt) | 20.01 | 33.22 | 39.6% | 0.622 |
 | | PathoSAM teacher (zero-shot) | ~640M | — | 15.80 | 29.02 | **28.3%** | 0.711 |
 | | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **14.74 (1.53)** | **24.81 (3.03)** | 47.6% (3.4) | **0.786 (0.052)** |
 | **PanNuke** (fold_3 sạch) | **PACT (ours, in-domain)** | **1.9M** | **count (rẻ)** | **3.36** | `[TODO]` | `[TODO]` | `[TODO]` |
@@ -82,7 +82,12 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 > off-the-shelf; sự bất đối xứng nhãn (count rẻ vs mask đắt) *chính là* điểm bán. Cùng chuẩn CellGenNet.
 > **Disclose thẳng:** MAPE 47.6% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR.
 > **★ Số PACT = 5-seed (42–46) từ `compute_r2_counting.py`, coherent (R²/MAE/RMSE/MAPE cùng nguồn); PACT thắng teacher R²+MAE+RMSE, thua MAPE.**
-> `[TODO]` cột R² cả bảng (chuẩn H-Optimus, tính từ preds) · NuLite-T · block PanNuke heavy-net leak-free.
+> **Nguồn coherent (✅ đủ 3 heavy net):** CellViT+LKCell+NuLite = CÙNG thước `dump_counts.py`
+> (len-instances, 665 ảnh mỗi model); teacher = len-scores; PACT = Σdensity. Mỗi model đếm native của nó
+> (chuẩn — như CellGenNet/H-Optimus). *(Số §4.6 cũ từ eval_heavy_count KHÁC thước → đã thay bằng dump coherent.)*
+> ⚠️ CellViT-SAM-H hiện là số @256 (TẠM) — **đang chạy lại @1024 (native SAM)** cho fair; sẽ thay.
+> `[TODO]` (optional) baseline recent/classic: Cellpose / InstanSeg (`dump_cellpose.py` / `dump_instanseg.py`).
+> `[TODO]` block PanNuke heavy-net (leak-free).
 
 ### Bảng 2 — Hiệu quả tính toán *(H-Optimus Table 4 + cột thu-nhỏ×; + FLOPs/latency họ KHÔNG có)*
 | Model | Params | ×nhỏ hơn teacher | GMACs @256² | Size (MB) | Latency (ms) ↓ | Peak VRAM ↓ |
