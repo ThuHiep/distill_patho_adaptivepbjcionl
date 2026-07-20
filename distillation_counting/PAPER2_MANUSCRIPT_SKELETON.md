@@ -93,13 +93,14 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 ### Bảng 2 — Hiệu quả tính toán *(config CHÍNH ch32 vs teacher; H-Optimus Table 4)*
 | Model | Params | GMACs @256² | Size (fp32) | Latency ms/ảnh ↓ | Peak VRAM (bs1) ↓ |
 |---|---|---|---|---|---|
-| PathoSAM teacher (ViT-H) | 641M | `[cần chạy]` | ~2.56 GB | — (SAM prompt-based) | **5.87 GB** |
+| PathoSAM teacher (ViT-H) | 641M | n/a¹ | ~2.56 GB | n/a¹ | **5.87 GB** |
 | **PACT (ch32, CHÍNH)** | **1.935M** | **10.49** | **7.74 MB** | **4.91 ms** | **70.7 MB** |
 > **★ VRAM: PACT 70.7 MB vs teacher 5.87 GB → nhỏ hơn ~85×** (headline deployment kiểu H-Optimus 16→3GB).
 > PACT còn nhỏ hơn **~330× params** + file (~330× nhẹ hơn). Đo THẬT Tesla T4 (bs=1): teacher = peak VRAM
 > `image_encoder` SAM ViT-H @1024² (native SAM, `measure_teacher_vram.py`, params 641M xác nhận ViT-H);
 > PACT @256² (native PACT) — mỗi model ở native res. PACT batch-32: 222 img/s / 1.92 GB.
-> ⚠️ **KHÔNG so latency teacher** (SAM prompt-based, khác paradigm PACT 1-forward → ms không fair; H-Optimus cũng chỉ so VRAM).
+> **¹ GMACs/latency teacher = n/a:** teacher chạy 1024²/prompt-based, PACT 256²/1-forward → 2 metric này KHÁC
+> thang & paradigm, KHÔNG so cross-model được. So sánh cross-model chỉ dựa **params · size · VRAM** (như H-Optimus).
 > *(Ablation ch16 0.485M — xem mục Ablation, không để bảng chính.)*
 
 ### Bảng 3 — Độ tin cậy: teacher vs student *(H-Optimus Table 3 — parity/vượt teacher)*
