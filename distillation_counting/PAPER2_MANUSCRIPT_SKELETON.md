@@ -90,15 +90,17 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 > `[TODO]` (optional) baseline recent/classic: Cellpose / InstanSeg (`dump_cellpose.py` / `dump_instanseg.py`).
 > `[TODO]` block PanNuke heavy-net (leak-free).
 
-### Bảng 2 — Hiệu quả tính toán *(H-Optimus Table 4 + cột thu-nhỏ×; + FLOPs/latency họ KHÔNG có)*
-| Model | Params | ×nhỏ hơn teacher | GMACs @256² | Size (MB) | Latency (ms) ↓ | Peak VRAM ↓ |
+### Bảng 2 — Hiệu quả tính toán *(H-Optimus Table 4 + cột thu-nhỏ×; + FLOPs/latency/VRAM họ KHÔNG đủ)*
+| Model | Params | ×nhỏ hơn teacher | GMACs @256² | Size (MB) | Latency ms/ảnh ↓ | Peak VRAM (bs1) ↓ |
 |---|---|---|---|---|---|---|
 | PathoSAM teacher | ~640M | 1× | `[TODO]` | ~2560 | `[TODO]` | ~16 GB |
-| **PACT (ch32, ours)** | **1.935M** | **331×** | 10.49 | 7.74 | `[TODO]` | `[TODO]` |
-| **PACT (ch16, ours)** | **0.485M** | **1320×** | **2.65** | **1.94** | `[TODO]` | `[TODO]` |
-> Params/GMACs/Size = đo THẬT local (thop, torch 2.8, 1×3×256²; Size=params×4B fp32). PACT còn **nhỏ hơn
-> student H-Optimus (24M) ~12–50× và NuLite (12M) ~6–25×** — nhấn ở abstract.
-> `[TODO]` Latency+VRAM: `measure_latency.py --ch 32/16` trên 1 GPU cố định. Teacher GMACs: cite paper PathoSAM.
+| **PACT (ch32, ours)** | **1.935M** | **331×** | 10.49 | 7.74 | **4.91** | **70.7 MB** |
+| **PACT (ch16, ours)** | **0.485M** | **1320×** | **2.65** | **1.94** | **2.33** | **38.1 MB** |
+> Latency+VRAM đo THẬT trên **Tesla T4** (`measure_latency.py`, forward student thuần, bs=1): ch32 **4.91 ms/ảnh
+> (204 img/s), 70.7 MB**; ch16 **2.33 ms (430 img/s), 38.1 MB**. Batch-32: ch32 222 img/s /1.92 GB, ch16 469 img/s /0.89 GB.
+> **★ VRAM 70.7 MB vs teacher ~16 GB → nhỏ hơn ~230×** (chạy được trên GPU/CPU khiêm tốn) — kiểu headline H-Optimus (16GB→3GB).
+> Params/GMACs/Size đo local (thop, torch 2.8). PACT nhỏ hơn student H-Optimus (24M) ~12–50×, NuLite (12M) ~6–25×.
+> `[TODO]` teacher GMACs/latency: cite paper PathoSAM (không dựng env SAM local).
 
 ### Bảng 3 — Độ tin cậy: teacher vs student *(H-Optimus Table 3 — parity/vượt teacher)*
 | Dataset | Model | Params | worst-org cov global ↑ | worst-org cov cluster ↑ | Winkler ↓ | count MAE ↓ |
