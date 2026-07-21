@@ -41,6 +41,38 @@ Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-se
 
 ---
 
+## 0.5 ★★★ PIVOTAL (2026-07-22) — DISTILLATION KHÔNG GIÚP CHO ĐẾM → REPOSITION
+
+**Bối cảnh:** chẩn đoán vì sao PACT (TinyUNet, teacher-distill) accuracy chỉ ~0.78. Kết quả **lật trục "distillation = linh hồn"**.
+
+**Bảng chẩn đoán (leak-free, global R² qua `compute_r2_counting.py`; efflite0 = EfficientNet-Lite0 pretrained ~3.6M, backbone hỗ trợ sẵn trong `distill_student_r2.py --backbone`):**
+
+| Dataset | Backbone | count-only (w_d=0,w_c=1) | teacher-distill (w_d=1,w_c=0.01) | GT-density (target hoàn hảo) |
+|---|---|---|---|---|
+| NuInsSeg | TinyUNet (5-seed) | 0.767 | 0.786 | 0.810±0.023 |
+| NuInsSeg | efflite0 (**1 seed**) | **0.925** | **0.512** ⬇️ | 0.881 |
+| PanNuke f3 | efflite0 (**1 seed**) | 0.928 | 0.935 | — |
+| *(teacher PathoSAM zero-shot NuInsSeg = 0.711)* | | | | |
+
+**Kết luận cứng (logic bịt đường cãi):**
+1. **GT-density hoàn hảo (0.881) < count-only (0.925)** → bắt chước density map, DÙ target hoàn hảo, **không thể bằng** dạy thẳng count. Ceiling của distill = chất lượng density, mà ceiling đó vẫn dưới count-only.
+2. Teacher thật ≤ GT: **in-domain** (PanNuke, density≈GT) → distill **HÒA** count-only (0.935≈0.928); **OOD** (NuInsSeg, density rác) → distill **SẬP** (0.512≪0.925).
+3. ⟹ **Distill giỏi nhất = hòa, dở nhất = hại, KHÔNG BAO GIỜ thắng count-only.** Nguyên nhân 0.512 = **teacher tồi (OOD)**, KHÔNG phải student yếu (efflite0 đạt 0.881 với GT, 0.925 với count trực tiếp).
+4. **"Distill foundation → tiny counter" chết ở trục accuracy.** Phản biện trực tiếp tiền đề CellGenNet/H-Optimus (đều distill).
+
+**⚠️ IN-DOMAIN caveat (lỗi đã mắc, phải nhớ):** efflite0 0.925 là **in-domain** (train NuInsSeg count). KHÔNG được claim "đè foundation 640M" (teacher zero-shot) — bất đối xứng = critique A. So fair phải là **các counter nhẹ khác cũng in-domain count**, hoặc efflite0 eval **zero-shot cross-dataset**.
+
+**→ REPOSITION (chốt hướng với user 2026-07-22):** xây **MODEL MỚI count-only sạch** (backbone nhẹ pretrained + đầu đếm trực tiếp + đầu σ calibrated, CHỈ nhãn count, KHÔNG teacher/mask). "Distill" **rời khỏi method**, chỉ còn là **ablation/động-cơ** ("thử distill foundation — không giúp/hại → nên thiết kế gọn không teacher"). Novelty gánh bởi: **(i) negative-result distill-là-thừa** (cái mới nhất, ngược field) + **(ii) đầu UQ calibrated/transfer** + (iii) label-efficiency + chặt chẽ đa dataset. Model một mình = incremental → PHẢI đi kèm (i).
+
+### ⏳ PHẢI CHẠY để firm-up claim "distill không giúp" lên chuẩn Q1 (chưa làm)
+- **(a) [BẮT BUỘC] efflite0 5-seed** cho cả 3 điều kiện (count-only / teacher-distill / GT-density) trên NuInsSeg + PanNuke → hiện mới **1 seed** (±0.000), cần mean±sd loại may rủi. Backbone efflite0, `--kfold 5` (NuInsSeg) / `--test_fold 3` (PanNuke), lặp `--seed {42..46}`.
+- **(b) [NÊN] CryoNuSeg teacher-OOD** — điểm thứ 3 cho trục "teacher OOD → distill hại" (hiện chỉ 2 điểm: NuInsSeg hại, PanNuke hòa). Teacher PathoSAM cũng OOD trên CryoNuSeg → kỳ vọng distill < count-only, xác nhận xu hướng. Cache/prep: `prep_cryonuseg_counts.py`.
+- **(c) [GHI PHẠM VI]** chỉ 1 teacher (PathoSAM) → scope claim "một foundation pathology mạnh", hoặc thử teacher thứ 2.
+
+**Artifacts đã tạo (chẩn đoán, chưa backup):** `work/baseline_countonly_efflite0.pkl` (0.925), `pact_efflite0_distill.pkl` (0.512), `efflite0_gtdensity.pkl` (0.881), `baseline_countonly_tinyunet.pkl` (0.767), `efflite0_pan_countonly_f3.pkl` (0.928), `efflite0_pan_distill_f3.pkl` (0.935). **→ backup Kaggle khi chạy 5-seed.** TinyUNet GT-density 5-seed = pkl `student_r2_nuinsseg_cv5_supervised_s*` (dataset `sam3-paper2-uqkd`).
+
+---
+
 ## 1. IDENTITY & RANH GIỚI
 
 ### 1.1 Paper 1 vs Paper 2 (KHÔNG double-claim)
