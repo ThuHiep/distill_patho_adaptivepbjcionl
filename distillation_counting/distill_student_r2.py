@@ -144,10 +144,10 @@ def build_pannuke_density(root, folds, device, cache, use_gt=False):
     """Dataset 2 (generalization): PanNuke như K=1 (TỔNG số nhân). Tái dùng PanNukeFold (đọc .npy).
     organ := tissue type (19 loại) cho conditional coverage. density total class-agnostic (giống
     NuInsSeg). use_gt=True -> density từ instance GT (5 kênh gộp); False -> từ PathoSAM."""
-    from pannuke_loader import PanNukeFold  # kaggle/lib (đã trong sys.path)
     if os.path.exists(cache):
         print(f"[A] load cache {cache}")
         return pickle.load(open(cache, "rb"))
+    from pannuke_loader import PanNukeFold  # kaggle/lib — chỉ cần khi BUILD (không có cache)
     if not use_gt:
         from pathosam_lib import load_pathosam, pathosam_instances
         predictor, segmenter = load_pathosam(device)
