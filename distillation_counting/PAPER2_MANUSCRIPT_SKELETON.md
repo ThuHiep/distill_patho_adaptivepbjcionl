@@ -81,7 +81,8 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 > thích nghi NuInsSeg: chỉ **PACT** được thích nghi (bằng **count rẻ**); mọi net kia + teacher đều **off-the-shelf**.
 > **Claim ĐÚNG = thích-nghi-rẻ, KHÔNG phải "model giỏi hơn".** Vì sao net kia kẹt off-the-shelf: muốn thích nghi
 > chúng phải có **mask pixel đắt** — trong khi PACT chỉ cần **count**. Sự bất đối xứng đó *chính là* điểm bán (chuẩn CellGenNet).
-> **Disclose thẳng:** MAPE 47.6% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR.
+> **Disclose thẳng:** MAPE 47.6% > teacher 28.3% (density-sum sai tương đối ở ảnh ít nhân) — như CellGenNet disclose FPR. **Cơ chế đã chứng minh: xem Bảng 1b (lỗi theo tầng).**
+> **★ Ý nghĩa thống kê (critique B):** PACT 5-seed **ensemble** MAE 12.28 vs teacher 15.80 → **ΔMAE −3.52** (95%CI [−4.85, −2.24]), **paired-Wilcoxon per-ảnh p = 3.5×10⁻⁴ \*\*\*** (n=665 ảnh, KHÔNG per-seed). Single-model 14.74 cũng < 15.80 (cách nhỏ hơn). `significance_counting.py`.
 > **★ Số PACT = 5-seed (42–46) từ `compute_r2_counting.py`, coherent (R²/MAE/RMSE/MAPE cùng nguồn); PACT thắng teacher R²+MAE+RMSE, thua MAPE.**
 > **Nguồn coherent (✅ đủ 3 heavy net):** CellViT+LKCell+NuLite = CÙNG thước `dump_counts.py`
 > (len-instances, 665 ảnh mỗi model); teacher = len-scores; PACT = Σdensity. Mỗi model đếm native của nó
@@ -89,6 +90,16 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 > ✅ CellViT-SAM-H chạy @1024 (native SAM, fair) — R² 0.663 (256 chỉ 0.444, thiệt cho nó); PACT vẫn dẫn cả 3.
 > `[TODO]` (optional) baseline recent/classic: Cellpose / InstanSeg (`dump_cellpose.py` / `dump_instanseg.py`).
 > `[TODO]` block PanNuke heavy-net (leak-free).
+
+### Bảng 1b — Phân tích lỗi ĐẾM theo tầng mật độ (NuInsSeg, PACT 5-seed) *(error-analysis, đóng critique C1)*
+| Mật độ (GT count) | N | GT̄ | MAE ↓ | MAPE ↓ |
+|---|---|---|---|---|
+| Thấp (1–20) | 167 | 10.6 | 6.78 | **110.1%** |
+| TB (21–50) | 261 | 34.8 | 9.82 | 28.4% |
+| Cao (>50) | 237 | 102.5 | 25.78 | 24.8% |
+| **Toàn bộ** | 665 | 52.8 | 14.74 | 47.6% |
+> **Đọc (2 điểm honest):** (1) **MAPE-47.6% toàn cục bị KÉO bởi vùng ít nhân** — bin Thấp GT̄=10.6 → MAPE 110% dù MAE chỉ 6.78 (mẫu số nhỏ khuếch đại lỗi tương đối); vùng đông MAPE chỉ 24.8%. Đúng cơ chế reviewer C1. (2) **Limitation thật:** ở vùng ít nhân PACT thua teacher (teacher bin Thấp MAE 2.95/MAPE 37.2%) — density-sum tích false-positive trên ảnh gần-trống → over-count; PACT thắng toàn cục nhờ **vùng đông** (R²_bin-Cao 0.63). Đưa vào Discussion/Limitations.
+> **⚠️ R² per-bin KHÔNG báo** (range-restriction: trong 1 bin hẹp ss_tot→0 nên R² ra âm, vô nghĩa); R² chỉ hợp lệ toàn cục (0.786). `stratified_error.py`.
 
 ### Bảng 2 — Hiệu quả tính toán *(config CHÍNH ch32 vs teacher; chỉ metric SO ĐƯỢC, kiểu H-Optimus Table 4)*
 | Model | Params | Size (fp32) | Peak VRAM (bs1) |

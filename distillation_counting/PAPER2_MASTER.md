@@ -262,6 +262,11 @@ Heavy net off-the-shelf (checkpoint PanNuke → OOD trên NuInsSeg, không leak)
 
 **PACT dẫn R²+MAE+RMSE, nhỏ nhất 6–368×; teacher giữ MAPE.** LKCell (164M) thua cả NuLite (12M) OOD; không model dùng-sẵn nào (kể cả CellViT 699M) gần PACT → foundation nặng off-the-shelf không transfer tốt tương ứng kích thước. Đóng khung = **thích-nghi-rẻ (nhãn count) vs off-the-shelf**, KHÔNG "model giỏi hơn".
 
+**★ 4.6c — Reviewer-hardening (2026-07-21, `stratified_error.py` + `significance_counting.py`, Kaggle):**
+- **[B] Significance Bảng 1:** PACT 5-seed **ensemble** MAE 12.28 vs teacher 15.80 → **ΔMAE −3.52** (95%CI [−4.85,−2.24]), **paired-Wilcoxon per-ẢNH p=3.5e-4 \*\*\*** (n=665, KHÔNG per-seed). Single-model 14.74 cũng <15.80. → critique B CLOSED.
+- **[C1] Lỗi theo tầng mật độ (PACT 5-seed):** Thấp(1-20,n167,GT̄10.6) MAE 6.78/MAPE **110%** · TB(21-50,n261) 9.82/28.4% · Cao(>50,n237) 25.78/**24.8%** · toàn cục 14.74/47.6%. **2 kết luận honest:** (1) MAPE-47.6% bị kéo bởi vùng ít nhân (mẫu số nhỏ) — đúng cơ chế C1; (2) **limitation THẬT**: bin Thấp PACT (6.78/110%) thua teacher (2.95/37.2% local) — density-sum over-count ảnh gần-trống; PACT thắng nhờ vùng đông (R²_cao 0.63). ⚠️ R² per-bin âm = range-restriction, KHÔNG báo. → critique C1 CLOSED + Limitations có nội dung.
+- **[A-1] Baseline khác-kiến-trúc count-only** (efficientnet_lite0, w_density=0): ⏳ CHỜ CHẠY (`RUNBOOK_reviewer_ABC.md`). Kỳ vọng ≈ PACT (khớp §4.8 supervised≈distilled) → xác nhận lợi thế = in-domain count-label, KHÔNG phải kiến trúc. TUYỆT ĐỐI không claim "PACT arch superior".
+
 **PROVENANCE csv (backup Kaggle dataset `hipinhththu/lkcell-nulite-preds`):**
 - `nulite_preds.csv` (665) · `lkcell_preds_full.csv` (665) · CellViT `cellvit_preds_full.csv`@256 + `cellvit_preds_1024.csv`@1024 (đang chạy) · gt `gt_counts.csv`.
 - ⚠️ csv cũ `lkcell_preds.csv` = **5 ảnh HỎNG** (dấu vết `--limit 5`), ĐỪNG dùng — đã thay bằng `_full`.
