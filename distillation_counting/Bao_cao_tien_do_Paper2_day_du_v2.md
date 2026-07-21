@@ -43,11 +43,28 @@ Cột "Thích nghi NuInsSeg" = nhãn **thực tế đã dùng** để thích ngh
 
 **Đọc:** PACT đạt **R² + MAE + RMSE tốt nhất bảng**, ở **6–368× nhỏ hơn**, chỉ dùng **nhãn đếm**. Đáng chú ý: **LKCell (164M) còn thua NuLite (12M)** trên OOD, và không model dùng-sẵn nào (kể cả CellViT 699M) tiến gần PACT → foundation nặng áp off-the-shelf transfer không tốt hơn tương ứng kích thước. *(CellViT chạy ở native 1024; ở 256 R² chỉ 0.444 → đã dùng số 1024 cho fair.)*
 
+**Ý nghĩa thống kê (so PACT vs teacher):** trên **665 ảnh** (đơn vị lặp = ảnh, không phải seed), PACT (5-seed ensemble) đạt MAE 12.28 so teacher 15.80 → **ΔMAE = −3.52** (95% CI [−4.85, −2.24]), **kiểm định Wilcoxon bắt cặp p = 3.5×10⁻⁴ (\*\*\*)**. Cải thiện **không do ngẫu nhiên**. (Model đơn 14.74 cũng thấp hơn teacher, cách nhỏ hơn.)
+
 **Hai điều nói thẳng (trung thực, đúng chuẩn CellGenNet):**
 - **Claim đúng = thích-nghi-rẻ, KHÔNG phải "PACT là model đếm giỏi hơn".** Chỉ PACT được thích nghi trên NuInsSeg, bằng **nhãn count rẻ**; các net kia để off-the-shelf. Đây *chính xác* là thiết lập CellGenNet (họ train trên domain đích rồi so với Cellpose/StarDist/InstanSeg off-the-shelf). Lý do các net kia **kẹt** off-the-shelf: muốn thích nghi chúng phải có **mask pixel đắt**, còn PACT chỉ cần **count** → sự bất đối xứng nhãn đó *chính là* luận điểm label-efficiency.
 - **PACT thua MAPE** (47.6% > teacher 28.3%): density-sum sai tương đối cao ở ảnh ít nhân — disclose thẳng (như CellGenNet disclose FPR cao của họ).
 
 *(In-domain PanNuke: PACT MAE 3.36, worst-organ coverage 0.906, Winkler 19.28.)*
+
+### 3.1b Phân tích lỗi theo tầng mật độ (giải thích MAPE)
+
+Vì sao MAPE toàn cục cao (47.6%)? Chia 665 ảnh theo số nhân GT và tính lỗi từng tầng (PACT 5-seed):
+
+| Mật độ (GT count) | N | GT̄ | MAE ↓ | MAPE ↓ |
+|---|---|---|---|---|
+| Thấp (1–20) | 167 | 10.6 | 6.78 ± 0.28 | **110.1 ± 8.5%** |
+| TB (21–50) | 261 | 34.8 | 9.82 ± 0.71 | 28.4 ± 2.0% |
+| Cao (>50) | 237 | 102.5 | 25.78 ± 3.74 | 24.8 ± 3.1% |
+| Toàn bộ | 665 | 52.8 | 14.74 ± 1.53 | 47.6 ± 3.4% |
+
+**Hai điều nói thẳng:**
+- **MAPE-47.6% bị kéo lên bởi vùng ít nhân.** Ở tầng Thấp, GT trung bình chỉ 10.6 nên **mẫu số nhỏ khuếch đại sai số tương đối** (MAPE 110%) dù MAE tuyệt đối chỉ 6.78; ở vùng đông MAPE chỉ 24.8%. Đây là **tính chất của metric MAPE**, không phản ánh năng lực đếm ở vùng nhiều nhân.
+- **Giới hạn thật (đưa vào Thảo luận):** ở vùng ít nhân PACT **thua teacher** (teacher tầng Thấp MAE 2.95 / MAPE 37.2%) — đầu density cộng dồn dương-tính-giả trên ảnh gần trống → đếm dư; PACT thắng toàn cục nhờ **vùng nhiều nhân**. *(R² từng tầng không báo vì trong một dải hẹp phương sai nền → 0, chỉ số vô nghĩa; R² chỉ hợp lệ toàn cục = 0.786.)*
 
 ### 3.2 Vì sao distill? — Label-efficiency (phép so CÓ KIỂM SOÁT)
 
@@ -111,9 +128,16 @@ Khả thi để chuyển tri thức đếm từ một pathology foundation model
 
 ## 6. Việc còn lại (đang hoàn thiện)
 
-- **Chốt CellViT-SAM-H ở native 1024** (số hiện tại @256 là tạm; smoke cho thấy lệch ~15%/ảnh — chạy lại cho fair).
-- **Thêm 1 baseline recent/classic** (InstanSeg 2024–25 hoặc Cellpose) cho đa dạng paradigm — đủ 5 baseline.
-- **Latency/VRAM thực đo** trên GPU (Bảng hiệu quả §3.3).
+**Đã đóng gần đây (phản hồi phản biện):**
+- ✅ **CellViT-SAM-H native 1024** — đã chạy, R² 0.663 (§3.1).
+- ✅ **Latency/VRAM thực đo T4** — đã có (§3.3).
+- ✅ **Ý nghĩa thống kê Bảng chính** — Wilcoxon bắt cặp per-ảnh, ΔMAE −3.52 p=3.5×10⁻⁴ (§3.1).
+- ✅ **Phân tích lỗi theo tầng mật độ** — giải thích MAPE + nêu giới hạn vùng ít nhân (§3.1b).
+
+**Còn lại:**
+- ⏳ **Baseline đối chứng cùng-mức-giám-sát** (đang chạy): một mạng **khác kiến trúc** (EfficientNet-Lite0) huấn luyện **trực tiếp bằng count-loss** trên NuInsSeg — để chứng minh lợi thế Bảng 3.1 đến từ **giám sát đếm in-domain rẻ**, không phải riêng kiến trúc PACT. *(Đây là đối chứng đóng chốt câu hỏi "PACT thắng chỉ vì được nhìn dữ liệu đích?"; kỳ vọng baseline ≈ PACT — khớp ablation supervised≈distilled — vẫn giữ nguyên luận điểm label-efficiency, tuyệt đối không claim "kiến trúc PACT vượt trội".)*
 - Điền cột heavy-net cho **PanNuke** (leak-free).
+- *(tùy chọn)* thêm 1 baseline recent/classic (InstanSeg/Cellpose) cho đa dạng paradigm.
+- *(tùy chọn hardening)* nâng label-efficiency §3.2 từ 3 → 5 seed nếu đưa lên figure.
 
 *(Hướng multi-teacher committee đã thử và gác lại: probe cho thấy nó chỉ tạo thêm một tín hiệu σ (UQ) chứ không cải thiện accuracy — không phục vụ trục lightweight/accuracy đang là chính.)*
