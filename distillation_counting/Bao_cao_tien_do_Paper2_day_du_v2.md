@@ -37,7 +37,7 @@ So PACT với foundation/heavy net áp **off-the-shelf** (train PanNuke → dùn
 | LKCell-L | 163.8M | — (off-the-shelf) | 0.448 | 20.92 | 40.10 | 37.4% |
 | NuLite-T | 12.0M | — (off-the-shelf) | 0.622 | 20.01 | 33.22 | 39.6% |
 | PathoSAM teacher | ~640M | — (zero-shot) | 0.711 | 15.80 | 29.02 | **28.3%** |
-| **PACT (ours, 5 seed)** | **1.9M** | **count (in-domain)** | **0.786** | **14.74** | **24.81** | 47.6% |
+| **PACT (ours, 5 seed)** | **1.9M** | **count (in-domain)** | **0.786 ± 0.052** | **14.74 ± 1.53** | **24.81 ± 3.03** | 47.6 ± 3.4% |
 
 Cột "Thích nghi NuInsSeg" = nhãn **thực tế đã dùng** để thích nghi: chỉ **PACT** được thích nghi (bằng **count rẻ**); mọi net kia + teacher đều dùng **off-the-shelf** (không thích nghi).
 
