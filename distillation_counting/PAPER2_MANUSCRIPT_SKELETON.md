@@ -94,10 +94,10 @@ transfer được qua dataset — và (phụ) tự phát ra phân phối count c
 ### Bảng 1b — Phân tích lỗi ĐẾM theo tầng mật độ (NuInsSeg, PACT 5-seed) *(error-analysis, đóng critique C1)*
 | Mật độ (GT count) | N | GT̄ | MAE ↓ | MAPE ↓ |
 |---|---|---|---|---|
-| Thấp (1–20) | 167 | 10.6 | 6.78 | **110.1%** |
-| TB (21–50) | 261 | 34.8 | 9.82 | 28.4% |
-| Cao (>50) | 237 | 102.5 | 25.78 | 24.8% |
-| **Toàn bộ** | 665 | 52.8 | 14.74 | 47.6% |
+| Thấp (1–20) | 167 | 10.6 | 6.78 ± 0.28 | **110.1 ± 8.5%** |
+| TB (21–50) | 261 | 34.8 | 9.82 ± 0.71 | 28.4 ± 2.0% |
+| Cao (>50) | 237 | 102.5 | 25.78 ± 3.74 | 24.8 ± 3.1% |
+| **Toàn bộ** | 665 | 52.8 | 14.74 ± 1.53 | 47.6 ± 3.4% |
 > **Đọc (2 điểm honest):** (1) **MAPE-47.6% toàn cục bị KÉO bởi vùng ít nhân** — bin Thấp GT̄=10.6 → MAPE 110% dù MAE chỉ 6.78 (mẫu số nhỏ khuếch đại lỗi tương đối); vùng đông MAPE chỉ 24.8%. Đúng cơ chế reviewer C1. (2) **Limitation thật:** ở vùng ít nhân PACT thua teacher (teacher bin Thấp MAE 2.95/MAPE 37.2%) — density-sum tích false-positive trên ảnh gần-trống → over-count; PACT thắng toàn cục nhờ **vùng đông** (R²_bin-Cao 0.63). Đưa vào Discussion/Limitations.
 > **⚠️ R² per-bin KHÔNG báo** (range-restriction: trong 1 bin hẹp ss_tot→0 nên R² ra âm, vô nghĩa); R² chỉ hợp lệ toàn cục (0.786). `stratified_error.py`.
 
