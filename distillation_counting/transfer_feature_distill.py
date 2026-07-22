@@ -93,7 +93,7 @@ def train_student(imgs, gts, tr_idx, phikon, dev, epochs, w_feat, mode,
     for ep in range(epochs):
         np.random.shuffle(tr)
         model.train()
-        gate_on = use_distill and (mode == "naive" or ep >= warmup)   # gated: warm-up naive trước
+        active = use_distill and (mode == "naive" or ep >= warmup)     # gated modes: warm-up naive trước
         for i in range(0, len(tr), bs):
             idx = tr[i:i + bs]
             x = imgs[idx].to(dev)
@@ -105,19 +105,19 @@ def train_student(imgs, gts, tr_idx, phikon, dev, epochs, w_feat, mode,
                 pf = phikon[idx].float().to(dev)                       # (B,768,14,14)
                 fp = F.interpolate(fp, size=pf.shape[-2:], mode="bilinear", align_corners=False)
                 fp = F.normalize(fp, dim=1); pf = F.normalize(pf, dim=1)
-                cos = 1 - (fp * pf).sum(1)                             # (B,14,14) khoảng cách
-                if mode == "gated" and gate_on:
-                    # spatial density-gate (detach) -> dồn vào vùng nhân
+                cos = 1 - (fp * pf).sum(1)                             # (B,14,14)
+                use_dens = active and mode in ("density", "gated")
+                use_rel = active and mode in ("reliability", "gated") and rel is not None
+                if use_dens:                                          # spatial density-gate (detach)
                     w = F.interpolate(density.detach(), size=pf.shape[-2:], mode="bilinear",
-                                      align_corners=False)[:, 0]       # (B,14,14)
+                                      align_corners=False)[:, 0]
                     w = w / (w.flatten(1).sum(1).view(-1, 1, 1) + 1e-6)
-                    fl = (w * cos).flatten(1).sum(1)                   # (B,) spatial-weighted
-                    if rel is not None:                               # per-image reliability-gate
-                        fl = fl * torch.tensor(rel[idx], device=dev)
-                    feat_loss = fl.mean()
+                    fl = (w * cos).flatten(1).sum(1)                   # (B,)
                 else:
-                    feat_loss = cos.mean()
-                loss = loss + w_feat * feat_loss
+                    fl = cos.flatten(1).mean(1)                        # (B,) unweighted
+                if use_rel:                                           # per-image reliability-gate
+                    fl = fl * torch.tensor(rel[idx], device=dev, dtype=torch.float32)
+                loss = loss + w_feat * fl.mean()
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(params, 5.0)
             opt.step()
@@ -139,7 +139,7 @@ def main():
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--w_feat", type=float, default=30.0)
     ap.add_argument("--frac", type=float, default=0.25, help="ngân sách nhãn (regime gap lớn nhất)")
-    ap.add_argument("--seeds", default="42,43,44")
+    ap.add_argument("--seeds", default="42,43,44,45,46,47,48,49")
     args = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[device] {dev}")
@@ -159,7 +159,8 @@ def main():
     print(f"[phikon] dense {tuple(phikon.shape)}")
 
     seeds = [int(s) for s in args.seeds.split(",")]
-    modes = [("count-only", "none"), ("naive-distill", "naive"), ("gated-phễu", "gated")]
+    modes = [("count-only", "none"), ("naive", "naive"), ("density-only", "density"),
+             ("reliab-only", "reliability"), ("gated-both", "gated")]
     results = {m: [] for m, _ in modes}
     for seed in seeds:
         rng = np.random.default_rng(seed)
@@ -170,20 +171,37 @@ def main():
         k = max(30, int(len(tr_all) * args.frac))
         tr = rng.choice(tr_all, size=min(k, len(tr_all)), replace=False)
         rel = phikon_reliability(pooled, gts, tr, dev, seed=seed)
+        line = [f"seed {seed}"]
         for name, mode in modes:
             m = train_student(im256, gts, tr, phikon, dev, args.epochs, args.w_feat,
                               mode, rel=rel, seed=seed)
-            r2, mae = eval_r2(m, im256, gts, te, dev)
-            results[name].append(r2)
-            print(f"  seed {seed} | {name:14s} R²={r2:+.3f} MAE={mae:.2f}")
+            r2, _ = eval_r2(m, im256, gts, te, dev)
+            results[name].append(r2); line.append(f"{name} {r2:+.3f}")
+        print("  " + " | ".join(line))
 
-    print(f"\n=== {int(args.frac*100)}% nhãn, mô-chưa-thấy — R² mean±sd qua {len(seeds)} seed ===")
-    base = np.mean(results["count-only"])
+    print(f"\n=== {int(args.frac*100)}% nhãn, mô-chưa-thấy — {len(seeds)} seed ===")
+    base = np.array(results["count-only"])
+    try:
+        from scipy.stats import wilcoxon
+    except Exception:
+        wilcoxon = None
+    print(f"  {'mode':14s} {'R² mean±sd':>14s} {'Δ vs count':>11s} {'#thắng':>7s} {'p(Wilcoxon)':>12s}")
     for name, _ in modes:
-        a = np.array(results[name])
-        print(f"  {name:14s} {a.mean():+.3f} ± {a.std():.3f}   Δ vs count-only {a.mean()-base:+.3f}")
-    print("\nĐỌC: gated-phễu > naive-distill > count-only -> CỔNG có giá trị (method thật). "
-          "gated ≈ naive -> cổng không giúp, ghi honest.")
+        a = np.array(results[name]); d = a - base
+        if name == "count-only":
+            print(f"  {name:14s} {a.mean():+.3f}±{a.std():.3f}")
+            continue
+        wins = int((d > 0).sum())
+        if wilcoxon is not None and len(d) >= 5 and np.any(d != 0):
+            try:
+                p = wilcoxon(a, base).pvalue
+            except Exception:
+                p = float("nan")
+        else:
+            p = float("nan")
+        print(f"  {name:14s} {a.mean():+.3f}±{a.std():.3f} {d.mean():+11.3f} {wins:>4d}/{len(d)} {p:>12.4g}")
+    print("\nĐỌC: gated-both > count-only (paired #thắng cao, p<0.05) = CỔNG có giá trị. "
+          "So density-only/reliab-only để biết cổng nào kéo. naive<count = naive hại.")
 
 
 if __name__ == "__main__":

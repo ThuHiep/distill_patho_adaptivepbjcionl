@@ -91,6 +91,27 @@ Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-se
 
 **⏳ Bước tiếp (chưa làm):** transferability — efflite0 + feature-distill-Phikon có thắng efflite0-ImageNet ở low-label/shift không? (`transfer_feature_distill.py`). Confidence teacher cho phễu = **đã cache** `teacher_targets_nuinsseg.pkl`. Phikon truy cập HF `owkin/phikon` (Internet ON; ⚠️ `pip install` làm hỏng torch-CUDA → factory-reset, đừng pip).
 
+### 0.7 ★★ TRANSFERABILITY + PHỄU (2026-07-22, `transfer_feature_distill.py`, 25% nhãn, leave-organ-out, 3 seed) — METHOD-SIGNAL ĐẦU TIÊN
+
+Student = efflite0 (DensitySigmaUNet, count-only density). **Phễu 2 cổng (chỉ nhãn count):** density-gate spatial (density student detach → dồn distill vào vùng nhân) + reliability-gate per-image (Phikon-probe-count vs GT, 2-fold cross-fit → hạ ảnh teacher kém tin).
+
+| seed | count-only | naive-distill | gated-phễu |
+|---|---|---|---|
+| 42 | 0.925 | 0.907 | **0.945** |
+| 43 | 0.764 | 0.671 | **0.823** |
+| 44 | 0.566 | 0.332 | **0.669** |
+| **mean±sd** | 0.751±0.147 | 0.637±0.236 | **0.812±0.113** |
+
+**PAIRED (3/3 seed, nhất quán — variance marginal cao chỉ do độ-khó-split):**
+- **gated > count-only** CẢ 3 seed (+0.020/+0.059/+0.103, mean +0.061) — KHÔNG nhiễu.
+- **gated > naive** cả 3 (cổng CỨU distillation, +0.04→+0.34).
+- **naive < count-only** cả 3 (naive feature-distill HẠI nhất quán; số +0.071 single-seed cũ = may rủi).
+- Pattern: gain **lớn nhất khi task khó nhất** (seed 44 count 0.566 → +0.103) — phễu cứu lúc student đuối.
+
+**★ Câu chuyện method:** *"naive feature-distill hại tiny counter; phễu density+reliability biến thành gain nhất quán, lớn nhất ở chỗ khó"* = phát-hiện-vấn-đề→giải. **R²/generalization (KHÔNG MAE).** Novelty (lit-check): spatial-foreground-distill đã có (AttnFD 2024; foreground-distill crowd-counting DÙNG POINT) → khác biệt = **count-only (no point/mask) + reliability-gate per-image + FM pathology + histopath**.
+
+**⏳ FIRM (chưa xong, đang chạy):** 8 seed + paired-Wilcoxon; **ablate density-only vs reliability-only vs both**; w_feat sensitivity; cross-dataset OOD (CryoNuSeg); đường cong nhãn 10/25/50/100. Artifacts: script git; chưa có pkl backup (train nhanh, tái tạo được).
+
 ---
 
 ## 1. IDENTITY & RANH GIỚI
