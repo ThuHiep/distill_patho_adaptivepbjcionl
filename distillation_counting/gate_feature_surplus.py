@@ -72,7 +72,8 @@ def main():
     ap.add_argument("--root", default=None)
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
-    dev = "cuda"
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[device] {dev}" + ("" if dev == "cuda" else "  (CPU — chậm ~15-30' nhưng vẫn chạy)"))
 
     # 1) data: raw img (resize 224) + gt count + organ
     samples = build_index(args.root or find_root())
