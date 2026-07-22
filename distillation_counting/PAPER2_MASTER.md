@@ -91,26 +91,31 @@ Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-se
 
 **⏳ Bước tiếp (chưa làm):** transferability — efflite0 + feature-distill-Phikon có thắng efflite0-ImageNet ở low-label/shift không? (`transfer_feature_distill.py`). Confidence teacher cho phễu = **đã cache** `teacher_targets_nuinsseg.pkl`. Phikon truy cập HF `owkin/phikon` (Internet ON; ⚠️ `pip install` làm hỏng torch-CUDA → factory-reset, đừng pip).
 
-### 0.7 ★★ TRANSFERABILITY + PHỄU (2026-07-22, `transfer_feature_distill.py`, 25% nhãn, leave-organ-out, 3 seed) — METHOD-SIGNAL ĐẦU TIÊN
+### 0.7 PHỄU feature-distill (2026-07-22, `transfer_feature_distill.py`, 25% nhãn, leave-organ-out) — 8-SEED LẬT 3-SEED: KHÔNG SIGNIFICANT
 
 Student = efflite0 (DensitySigmaUNet, count-only density). **Phễu 2 cổng (chỉ nhãn count):** density-gate spatial (density student detach → dồn distill vào vùng nhân) + reliability-gate per-image (Phikon-probe-count vs GT, 2-fold cross-fit → hạ ảnh teacher kém tin).
 
-| seed | count-only | naive-distill | gated-phễu |
-|---|---|---|---|
-| 42 | 0.925 | 0.907 | **0.945** |
-| 43 | 0.764 | 0.671 | **0.823** |
-| 44 | 0.566 | 0.332 | **0.669** |
-| **mean±sd** | 0.751±0.147 | 0.637±0.236 | **0.812±0.113** |
+**★ KẾT QUẢ FIRM 8-seed + paired-Wilcoxon (w_feat=30, ablate 5 mode):**
 
-**PAIRED (3/3 seed, nhất quán — variance marginal cao chỉ do độ-khó-split):**
-- **gated > count-only** CẢ 3 seed (+0.020/+0.059/+0.103, mean +0.061) — KHÔNG nhiễu.
-- **gated > naive** cả 3 (cổng CỨU distillation, +0.04→+0.34).
-- **naive < count-only** cả 3 (naive feature-distill HẠI nhất quán; số +0.071 single-seed cũ = may rủi).
-- Pattern: gain **lớn nhất khi task khó nhất** (seed 44 count 0.566 → +0.103) — phễu cứu lúc student đuối.
+| mode | R² mean±sd | Δ vs count | #thắng | p(Wilcoxon) |
+|---|---|---|---|---|
+| count-only | **+0.688±0.204** | — | — | — |
+| naive | +0.614±0.154 | **−0.074** | 1/8 | 0.20 |
+| density-only | +0.708±0.216 | +0.020 | 4/8 | 0.84 |
+| reliab-only | +0.643±0.191 | **−0.046** | 1/8 | 0.20 |
+| gated-both | +0.744±0.174 | +0.056 | 5/8 | **0.74** |
 
-**★ Câu chuyện method:** *"naive feature-distill hại tiny counter; phễu density+reliability biến thành gain nhất quán, lớn nhất ở chỗ khó"* = phát-hiện-vấn-đề→giải. **R²/generalization (KHÔNG MAE).** Novelty (lit-check): spatial-foreground-distill đã có (AttnFD 2024; foreground-distill crowd-counting DÙNG POINT) → khác biệt = **count-only (no point/mask) + reliability-gate per-image + FM pathology + histopath**.
+**⚠️ 3-seed (gated 0.812 > count 0.751) là LẠC QUAN MẪU-NHỎ — 8 seed dội lại: gated-both 5/8, p=0.74 → KHÔNG có ý nghĩa thống kê.** Cùng loại dương-tính-giả multi-seed từng bắt ở naive.
 
-**⏳ FIRM (chưa xong, đang chạy):** 8 seed + paired-Wilcoxon; **ablate density-only vs reliability-only vs both**; w_feat sensitivity; cross-dataset OOD (CryoNuSeg); đường cong nhãn 10/25/50/100. Artifacts: script git; chưa có pkl backup (train nhanh, tái tạo được).
+**Cái GÌ vững (tái lập):**
+- **naive feature-distill HẠI** (−0.074, 1/8) — nhồi feature teacher thô vào student 3.6M làm tệ. Vững.
+- **reliab-gate một mình cũng HẠI** (−0.046, 1/8) — cổng tin-cậy per-image hạ nhầm ảnh tốt (w_feat=30 ép quá?).
+- **density-gate GỠ được cái hại** (−0.074→+0.020) nhưng **không thêm giá trị** vs không-distill.
+- gated-both +0.056 nhưng ±0.20 nuốt trọn → không phân biệt được với 0.
+
+**Nghĩa khoa học (finding đáng giá):** thặng dư feature pathology-FM **CÓ THẬT** (gate probe §0.6: Phikon>ImageNet) **nhưng KHÔNG chuyển được vào student 3.6M**. Cổng lọc chỉ *khử hại* của distill, **không thu hồi surplus**. Root cause = **capacity gap** ViT-86M (probe đọc surplus) ↔ student 3.6M. = negative **giải thích được**, khớp arc rigor cả paper (distillation KHÔNG phải trục accuracy — xem [[paper2-core-A-decision]], [[paper2-q1-hardening]]).
+
+**⏳ TRƯỚC KHI CHỐT NEGATIVE:** quét w_feat∈{5,10,30,60} × 4 seed (rẻ ~20') để đóng cửa — nếu MỌI w_feat vẫn ~null → negative robust với hyperparam chính → chốt honest. Nếu w_feat thấp cứu reliab-gate → tune tiếp. Artifacts: script git; chưa pkl backup (train nhanh, tái tạo được).
 
 ---
 
