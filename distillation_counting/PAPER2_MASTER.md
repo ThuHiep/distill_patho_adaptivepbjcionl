@@ -115,7 +115,24 @@ Student = efflite0 (DensitySigmaUNet, count-only density). **Phễu 2 cổng (ch
 
 **Nghĩa khoa học (finding đáng giá):** thặng dư feature pathology-FM **CÓ THẬT** (gate probe §0.6: Phikon>ImageNet) **nhưng KHÔNG chuyển được vào student 3.6M**. Cổng lọc chỉ *khử hại* của distill, **không thu hồi surplus**. Root cause = **capacity gap** ViT-86M (probe đọc surplus) ↔ student 3.6M. = negative **giải thích được**, khớp arc rigor cả paper (distillation KHÔNG phải trục accuracy — xem [[paper2-core-A-decision]], [[paper2-q1-hardening]]).
 
-**⏳ TRƯỚC KHI CHỐT NEGATIVE:** quét w_feat∈{5,10,30,60} × 4 seed (rẻ ~20') để đóng cửa — nếu MỌI w_feat vẫn ~null → negative robust với hyperparam chính → chốt honest. Nếu w_feat thấp cứu reliab-gate → tune tiếp. Artifacts: script git; chưa pkl backup (train nhanh, tái tạo được).
+**Quét w_feat∈{5,10,30} × 4 seed (2026-07-22):** gated-both Δ = +0.062 / −0.092 / −0.149 (ĐỔI DẤU quanh hyperparam) → không w_feat nào cứu → **negative robust**. Cũng lộ bug: count-only (không dùng w_feat) vẫn nhảy 0.658/0.703/0.736 giữa các lần chạy → `np.random.shuffle` global chưa seed → sàn nhiễu cao (đã fix ở script pseudo). Artifacts: script git; chưa pkl backup (train nhanh, tái tạo được).
+
+### 0.7b PIVOT pseudo-label semi-supervised (2026-07-23, `pseudo_label_semisup.py`) — TREND DƯƠNG NHƯNG CHƯA SIGNIFICANT (NuInsSeg thiếu power)
+
+Sau khi funnel chết: **giữ tốt/thay xấu** — probe Phikon làm **teacher OUTPUT** (teacher THẬT mạnh hơn student, điều kiện distill hoạt động) thay vì mimic feature (đấu capacity); confidence-gate đổi việc = **chọn pseudo-label** thay vì hạ nhãn thật. Count-only, 25% nhãn, leave-organ-out, 8 seed.
+
+| version | teacher−student | pseudo vùng-shift | **Δ student** | p | #thắng |
+|---|---|---|---|---|---|
+| v1 (teacher ensemble yếu, pool no-shift) | +0.042 | — | +0.051 | 0.74 | 4/8 |
+| **v2 (teacher full-data mạnh 0.755, transductive pool phủ shift)** | **+0.116** | **+0.530** | **+0.079** | **0.38** | 5/8 |
+
+**Đọc honest:** sửa 2 lỗi thiết kế (teacher yếu + pool bỏ đói vùng shift) → effect TĂNG ĐỀU (+0.05→+0.08), hướng nhất quán, teacher giờ mạnh hơn thật, pseudo phủ được mô-mới. **NHƯNG p=0.38 — chưa significant.** Rào cản = **phương sai NuInsSeg** (labeled-only ±0.309, pseudo-shift ±0.506; ít ảnh/mô → leave-organ-out nhảy) **nuốt** effect +0.08. = **thiếu power của dataset, KHÔNG phải lỗi method.**
+
+**confidence-gate: VÔ DỤNG** (v1: pseudo-all == pseudo-confident = +0.051; SANITY confident không chọn pseudo tốt hơn) → **bỏ**, ghi làm ablation honest.
+
+**Stop-rule pre-register:** p<0.05 → method thật; không → pseudo = mục phụ (ổn định label-efficiency), DỪNG. **v2 p=0.38 → theo rule = DỪNG trên NuInsSeg.** Đề xuất mở: 1 power-check trên **PanNuke** (nhiều ảnh/mô → variance nhỏ, dataset headline) — KHÔNG phải chase (sửa power cho vấn đề đã chẩn đoán là power), dứt điểm dương/âm. Chờ cô chọn (A) fold ngay / (B) 1 lần PanNuke.
+
+**Ghi nhận positive thật (dù chưa sig):** pseudo-label **giảm phương sai student** (v1: 0.279→0.136) = ổn định hoá — property có thật, dùng được cho mục label-efficiency phụ.
 
 ---
 
