@@ -136,6 +136,20 @@ Sau khi funnel chết: **giữ tốt/thay xấu** — probe Phikon làm **teache
 
 ---
 
+### 0.8 ★★ HƯỚNG METHOD MỚI: count-only anti-crowding (2026-07-23) — đánh điểm-yếu-cấp-CODE của hematoxylin-family
+
+**Điểm yếu đối thủ (đọc CODE, không chỉ paper):** Triple U-net (`colornorm.py`: NMF-Vahadane stain, chuẩn hoá percentile+exp → **saturate ở OD cao = vùng nhân dày**; đếm = 2-decoder foreground+distance → **watershed under-split** + `remove_small_objects(min_size=100)` rụng nhân nhỏ) và CP-Net (lightweight+H-prior, detection/classification). **Đếm KHÔNG bao giờ được học — nảy từ chuỗi stain→mask→watershed, mỗi khâu thoái hoá dưới crowding → undercount mô dày = lỗi CẤU TRÚC.** Đều cần **mask đắt**. Xem [[feedback-research-methodology]].
+
+**Đòn đánh (count-only, 3 phần có-lý):** (a) học đếm trực tiếp bỏ watershed; (b) module **hiệu chỉnh khối→số theo crowding** (un-saturate); (c) loss **composite-linearity** — ghép ảnh có ΣGT biết, ép cộng-tính → dạy (b) chỉ bằng nhãn đếm, KHÔNG mask. Khác composition-loss (crowd+dot) & khác tiling đã chết (composite tạo ảnh dày MỚI, forward lại → count(ghép)<Σ = tín hiệu THẬT, không rỗng).
+
+**✅ PREMISE P1 PASS (`premise_saturation_test.py`, efflite0 count-only, test 133 ảnh):** overlay min-blend k=1→4, Δsat% (Σpred_parts−overlay) = **0 → 26.5 → 39.9 → 50.9** đơn điệu → head **saturate mạnh dưới overlap** → loss có target lớn để học.
+
+**⚠️ Cảnh báo từ tile-control:** Δtile% cũng ~50% (≥ overlay ở k=2) → **một phần lớn undercount là RESOLUTION (nhân nhỏ khi downscale), không chỉ overlap** → method PHẢI ghép **OVERLAY full-res** (không tile) kẻo chỉ dạy scale-robustness (trivial). **Cổng sống-chết TIẾP THEO (chưa test):** anti-saturation học trên overlay TỔNG HỢP có **chuyển sang mô DÀY THẬT** (thymus/spleen undercount, worst-organ R²) không — nếu không → method rỗng.
+
+**Kế hoạch bậc:** Bước 1 = test **LOSS tối giản** (composite-linearity, overlay k2-4, target ΣGT) vs count-only baseline, multi-seed; đo (a) Δsat giảm? (b) **MAE mô dày thật + worst-organ R² cải thiện?** [cổng transfer] (c) R² tổng. Chỉ khi (b) pass mới thêm module (b) + ablate. Script: `method_composite_linearity.py`.
+
+---
+
 ## 1. IDENTITY & RANH GIỚI
 
 ### 1.1 Paper 1 vs Paper 2 (KHÔNG double-claim)
