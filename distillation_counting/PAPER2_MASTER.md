@@ -71,6 +71,26 @@ Bản `_feat` còn sót thiếu `--detach_mu` → số sai. Đã retrain R2 5-se
 
 **Artifacts đã tạo (chẩn đoán, chưa backup):** `work/baseline_countonly_efflite0.pkl` (0.925), `pact_efflite0_distill.pkl` (0.512), `efflite0_gtdensity.pkl` (0.881), `baseline_countonly_tinyunet.pkl` (0.767), `efflite0_pan_countonly_f3.pkl` (0.928), `efflite0_pan_distill_f3.pkl` (0.935). **→ backup Kaggle khi chạy 5-seed.** TinyUNet GT-density 5-seed = pkl `student_r2_nuinsseg_cv5_supervised_s*` (dataset `sam3-paper2-uqkd`).
 
+### 0.6 ★ REORIENT (2026-07-22) — hướng FEATURE-DISTILL "phễu" (gate DƯƠNG đầu tiên)
+
+**Chuỗi chẩn đoán loại sạch:** distill-OUTPUT bác; crowding-module tiền đề bác (`premise_tiling_test`: tiles TỆ hơn whole, whole đã gần đúng ở bin dày); scale-robustness = nghiệm tầm thường (MPP). ⟹ **accuracy in-domain ĐÃ bão hoà**, không còn khe method.
+
+**Insight cứu distill (trả lời "student không thừa hưởng gì từ teacher"):** mình đã distill **OUTPUT (density)** của teacher OOD (lỗi) — phải distill **REPRESENTATION (feature)**. Teacher đếm dở nhưng **đặc trưng thị giác pathology giàu**.
+
+**★ GATE DƯƠNG (2026-07-22, `gate_feature_surplus.py`, linear-probe leave-organ-out, Phikon ViT-B vs ImageNet ViT-B, CÙNG kiến trúc):**
+| nhãn | ImageNet R² | Phikon R² | Δ |
+|---|---|---|---|
+| 100% | 0.801 | **0.875** | +0.074 |
+| 50% | 0.738 | 0.868 | +0.130 |
+| 25% | 0.688 | 0.838 | **+0.150** |
+| 10% | 0.670 | 0.788 | +0.118 |
+
+**Feature pathology CÓ thặng dư** — lớn nhất ở **low-label + shift (mô chưa thấy)**, thu hẹp khi đủ nhãn. ⟹ hướng **feature-distill "phễu"** (distill feature, cổng lọc lỗi teacher = confidence × count-agreement) **SỐNG**.
+
+**⚠️ Honest:** (1) cải thiện là **R²/generalization, KHÔNG phải MAE** (MAE ~ngang/hơi tệ) → claim = generalize/label-efficiency, không phải sai-số-tuyệt-đối. (2) đây là **upper-bound** (probe trên Phikon 86M đông lạnh, CHƯA phải student tí hon). (3) **bẫy capacity-gap** khi nhồi 86M→efflite0 3.6M.
+
+**⏳ Bước tiếp (chưa làm):** transferability — efflite0 + feature-distill-Phikon có thắng efflite0-ImageNet ở low-label/shift không? (`transfer_feature_distill.py`). Confidence teacher cho phễu = **đã cache** `teacher_targets_nuinsseg.pkl`. Phikon truy cập HF `owkin/phikon` (Internet ON; ⚠️ `pip install` làm hỏng torch-CUDA → factory-reset, đừng pip).
+
 ---
 
 ## 1. IDENTITY & RANH GIỚI
