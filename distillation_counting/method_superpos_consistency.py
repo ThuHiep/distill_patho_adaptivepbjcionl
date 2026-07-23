@@ -103,7 +103,7 @@ def main():
     ap.add_argument("--root", default=None)
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--w_sup", type=float, default=1.0)
-    ap.add_argument("--seeds", default="42,43,44,45,46")
+    ap.add_argument("--seeds", default="42,43,44,45,46,47,48,49")
     args = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[device] {dev} | w_sup {args.w_sup}")
@@ -137,19 +137,38 @@ def main():
             R[name]["sat"].append(sat_k4(m, ims, te, dev, seed=seed))
         print(f"  seed {seed} done")
 
+    try:
+        from scipy.stats import wilcoxon
+    except Exception:
+        wilcoxon = None
+
+    def pval(a, b):
+        d = np.array(a) - np.array(b)
+        if wilcoxon is None or len(d) < 5 or not np.any(d != 0):
+            return float("nan")
+        try:
+            return wilcoxon(a, b).pvalue
+        except Exception:
+            return float("nan")
+
     print(f"\n=== Local Superposition-Consistency ({len(seeds)} seed, paired) ===")
-    print(f"  {'metric':22s} {'baseline':>14s} {'global(P1)':>14s} {'local(P4)':>14s}")
+    print(f"  {'metric':22s} {'baseline':>16s} {'global(P1)':>16s} {'local(P4)':>16s}")
     for lab, key in [("R² tổng ↑", "r2"), ("worst-organ R² ↑", "worst"),
                      ("MAE mô-dày ↓ [KEY]", "densemae"), ("Δsat% overlay ↓", "sat")]:
         b, g, l = (np.array(R[a][key]) for a, _ in arms)
-        print(f"  {lab:22s} {b.mean():>14.3f} {g.mean():>14.3f} {l.mean():>14.3f}")
-    dr2 = np.array(R["local-selfsup"]["r2"]) - np.array(R["baseline"]["r2"])
-    dmae = np.array(R["local-selfsup"]["densemae"]) - np.array(R["baseline"]["densemae"])
-    ok_r2, ok_mae = abs(dr2.mean()) < 0.02, dmae.mean() < 0
-    print(f"\n  local vs baseline (paired): ΔR²-tổng {dr2.mean():+.3f}  ΔMAE-mô-dày {dmae.mean():+.2f}")
-    print(f"  GATE NGHIÊM: R² giữ (|Δ|<0.02)? {'✅' if ok_r2 else '✗'} | MAE-mô-dày giảm? {'✅' if ok_mae else '✗'}")
-    print("  → cả 2 ✅ = locality gỡ được bias (giúp dày, không hại thưa) = METHOD THẬT → thêm gate/mở rộng.")
-    print("  → so global(P1): nếu global vẫn hại R² mà local giữ được → locality CHÍNH LÀ mấu chốt (đúng giả thuyết).")
+        print(f"  {lab:22s} {b.mean():>8.3f}±{b.std():.3f} {g.mean():>8.3f}±{g.std():.3f} {l.mean():>8.3f}±{l.std():.3f}")
+
+    base = R["baseline"]
+    print("\n  === significance vs baseline (paired Wilcoxon) ===")
+    for name in ["global-selfsup", "local-selfsup"]:
+        dr2 = np.array(R[name]["r2"]) - np.array(base["r2"])
+        dma = np.array(R[name]["densemae"]) - np.array(base["densemae"])
+        pr2, pma = pval(R[name]["r2"], base["r2"]), pval(R[name]["densemae"], base["densemae"])
+        print(f"  {name:16s} ΔR² {dr2.mean():+.3f} (p={pr2:.3g}, #win {int((dr2>0).sum())}/{len(dr2)}) | "
+              f"ΔMAE-mô-dày {dma.mean():+.2f} (p={pma:.3g}, #win {int((dma<0).sum())}/{len(dma)})")
+    print("\nĐỌC: local — ΔR²>0 (p<0.05) VÀ ΔMAE-mô-dày<0 (p<0.05) = METHOD THẬT, significant.")
+    print("     baseline<global<local đơn điệu + local > global significant = LOCALITY là mấu chốt (giả thuyết đúng).")
+    print("     Nếu p>0.05 (chưa đủ power) → tăng seed / kiểm PanNuke trước khi kết luận.")
 
 
 if __name__ == "__main__":

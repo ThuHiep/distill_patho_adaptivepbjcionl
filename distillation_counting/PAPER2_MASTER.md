@@ -148,6 +148,22 @@ Sau khi funnel chết: **giữ tốt/thay xấu** — probe Phikon làm **teache
 
 **Kế hoạch bậc:** Bước 1 = test **LOSS tối giản** (composite-linearity, overlay k2-4, target ΣGT) vs count-only baseline, multi-seed; đo (a) Δsat giảm? (b) **MAE mô dày thật + worst-organ R² cải thiện?** [cổng transfer] (c) R² tổng. Chỉ khi (b) pass mới thêm module (b) + ablate. Script: `method_composite_linearity.py`.
 
+**BƯỚC 1 KẾT QUẢ (5 seed paired):** Δsat 53.9→**26.7%** ✅ + MAE mô-dày 58.0→**51.1** ✅ (lần ĐẦU chạm metric thật) NHƯNG R² tổng 0.867→0.793 ✗ + worst-organ −1.41→−5.31 ✗. **Chẩn đoán:** loss đẩy count LÊN **toàn cục** → giúp mô dày (undercount) nhưng **over-count mô thưa** → R²↓. = **correction KHÔNG có mục tiêu** (gốc lỗi = ràng buộc không cục bộ, KHÔNG phải thiếu module).
+
+**★ BƯỚC 2 = CONTRIBUTION: Local Superposition-Consistency (`method_superpos_consistency.py`) — WIN SẠCH đầu tiên.**
+Nguyên lý (của mình, tổng quát mọi density-counter): bộ đếm phải **cộng-tính dưới chồng ảnh, CỤC BỘ**: `D(overlay(A,B)) ≥ D(A)+D(B)` theo ô. Loss **một-phía, per-cell, TỰ-GIÁM-SÁT** (target=density phần detach) → cục bộ nên KHÔNG bias toàn cục; một-phía nên không ép over-count; self-sup nên **dùng được ảnh không nhãn** (label-efficiency).
+
+Ablation cô lập locality (5 seed, mới có mean — CHỜ 8-seed+Wilcoxon):
+
+| metric | baseline | global(P1) | local(P4) |
+|---|---|---|---|
+| R² tổng ↑ | 0.850 | 0.865 | **0.882** (+0.031) |
+| worst-organ R² ↑ | −2.124 | −1.548 | **−1.317** |
+| MAE mô-dày ↓ | 55.5 | 54.2 | **45.7** (−9.72) |
+| Δsat overlay | 55.0 | 55.2 | 54.7 |
+
+**Lần đầu: R²↑ + worst-organ↑ + MAE-mô-dày↓ ĐỒNG THỜI, không tradeoff** (khác Bước 1). **Ablation ĐƠN ĐIỆU baseline<global<local** → locality là mấu chốt. **Δsat không đổi mà dày-MAE thật giảm** → KHÔNG gaming proxy. **⏳ Chưa có significance:** chạy 8-seed + paired-Wilcoxon. Gate: ΔR²>0 (p<0.05) VÀ ΔMAE-dày<0 (p<0.05) → method thật → generality (PanNuke) + semi-sup (ảnh không nhãn). Gate cổng-crowding (`method_crowd_gate.py`) = ablation kiến trúc phụ.
+
 ---
 
 ## 1. IDENTITY & RANH GIỚI
