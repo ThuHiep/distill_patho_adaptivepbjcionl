@@ -21,6 +21,7 @@ Gate NGHIÊM (pre-register): local vs baseline -> R²-tổng KHÔNG tụt (|Δ|<
 Chạy Kaggle (GPU; ĐỪNG pip install):  !python method_superpos_consistency.py --root /kaggle/input/datasets/ipateam/nuinsseg
 """
 import argparse
+from pathlib import Path
 import numpy as np
 from PIL import Image
 import torch, torch.nn.functional as F
@@ -32,6 +33,39 @@ from r2_losses import count_from_density
 def gt_from_mask(path):
     m = _load_mask(path)
     return int(len(np.unique(m)) - (1 if (m == 0).any() else 0))
+
+
+def _fold_base(root, fold):
+    f = f"fold{fold}"
+    for c in (root / f / f"Fold {fold}", root / f"Fold {fold}"):
+        if (c / "images" / f / "images.npy").exists():
+            return c
+    raise FileNotFoundError(f"Không thấy Fold {fold} dưới {root}")
+
+
+def load_pannuke(root, folds, exclude, max_imgs, seed=0):
+    """Load PanNuke trực tiếp từ .npy (img + counts.sum + tissue), KHÔNG cần lib/teacher/mask.
+    counts.npy (N,5) do precompute_pannuke_counts tạo. Loại tissue `exclude` (vd colon: leak teacher)."""
+    root = Path(root); ims, gts, tis = [], [], []
+    for fold in folds:
+        d = _fold_base(root, fold) / "images" / f"fold{fold}"
+        imgs = np.load(d / "images.npy")
+        types = np.load(d / "types.npy", allow_pickle=True)
+        counts = np.load(d / "counts.npy")               # (N,5)
+        gt = counts.sum(1).astype(np.float32)
+        for i in range(len(imgs)):
+            t = str(types[i])
+            if exclude and exclude.lower() in t.lower():
+                continue
+            ims.append(imgs[i]); gts.append(float(gt[i])); tis.append(t)
+    ims = np.stack(ims).astype(np.float32)
+    if ims.max() > 1.5:
+        ims /= 255.
+    gts, tis = np.array(gts), np.array(tis)
+    if max_imgs and len(ims) > max_imgs:
+        r = np.random.default_rng(seed).choice(len(ims), max_imgs, replace=False)
+        ims, gts, tis = ims[r], gts[r], tis[r]
+    return torch.from_numpy(ims).permute(0, 3, 1, 2), gts, tis
 
 
 def density(model, x):
@@ -100,25 +134,36 @@ def sat_k4(model, imgs, te, dev, ntup=200, seed=0):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=None)
+    ap.add_argument("--root", default=None, help="NuInsSeg root (dataset=nuinsseg)")
+    ap.add_argument("--dataset", default="nuinsseg", choices=["nuinsseg", "pannuke"])
+    ap.add_argument("--pannuke_root", default=None)
+    ap.add_argument("--folds", default="3", help="PanNuke folds, vd '3' (clean) hoặc '1,2,3'")
+    ap.add_argument("--exclude_tissue", default="colon", help="loại tissue PanNuke (leak teacher)")
+    ap.add_argument("--max_imgs", type=int, default=0, help="cap số ảnh (0=hết) để giảm runtime")
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--w_sup", type=float, default=1.0)
+    ap.add_argument("--min_n", type=int, default=8, help="min ảnh/organ cho worst-organ (PanNuke để 20)")
     ap.add_argument("--seeds", default="42,43,44,45,46,47,48,49")
     args = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"[device] {dev} | w_sup {args.w_sup}")
+    print(f"[device] {dev} | dataset {args.dataset} | w_sup {args.w_sup}")
 
-    samples = build_index(args.root or find_root())
-    ims, gts, organs = [], [], []
-    for s in samples:
-        im = np.asarray(Image.open(s["image"]).convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR),
-                        np.float32) / 255.
-        ims.append(im); gts.append(float(gt_from_mask(s["mask"]))); organs.append(s["organ"])
-    ims = torch.from_numpy(np.stack(ims)).permute(0, 3, 1, 2)
-    gts = np.array(gts); organs = np.array(organs)
+    if args.dataset == "pannuke":
+        folds = [int(x) for x in args.folds.split(",")]
+        ims, gts, organs = load_pannuke(args.pannuke_root, folds, args.exclude_tissue, args.max_imgs)
+        print(f"[data] PanNuke fold{folds} no-{args.exclude_tissue}: {len(gts)} ảnh")
+    else:
+        samples = build_index(args.root or find_root())
+        ims_l, gts, organs = [], [], []
+        for s in samples:
+            im = np.asarray(Image.open(s["image"]).convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR),
+                            np.float32) / 255.
+            ims_l.append(im); gts.append(float(gt_from_mask(s["mask"]))); organs.append(s["organ"])
+        ims = torch.from_numpy(np.stack(ims_l)).permute(0, 3, 1, 2)
+        gts, organs = np.array(gts), np.array(organs)
     org_mean = {o: gts[organs == o].mean() for o in set(organs)}
     dense_orgs = sorted(org_mean, key=org_mean.get, reverse=True)[:4]
-    print(f"[data] {len(gts)} ảnh | mô-dày: {[(o, round(org_mean[o])) for o in dense_orgs]}")
+    print(f"[data] {len(gts)} ảnh | {len(set(organs))} mô | mô-dày: {[(o, round(org_mean[o])) for o in dense_orgs]}")
 
     seeds = [int(s) for s in args.seeds.split(",")]
     arms = [("baseline", 0), ("global-selfsup", 1), ("local-selfsup", 4)]
@@ -132,7 +177,7 @@ def main():
             m = train_arm(ims, gts, tr, dev, args.epochs, P, args.w_sup, seed=seed)
             pr = preds(m, ims, te, dev); yt = gts[te]
             R[name]["r2"].append(r2(pr, yt))
-            R[name]["worst"].append(worst_organ_r2(pr, yt, organs[te]))
+            R[name]["worst"].append(worst_organ_r2(pr, yt, organs[te], args.min_n))
             R[name]["densemae"].append(np.abs(pr[dmask] - yt[dmask]).mean() if dmask.any() else np.nan)
             R[name]["sat"].append(sat_k4(m, ims, te, dev, seed=seed))
         print(f"  seed {seed} done")
