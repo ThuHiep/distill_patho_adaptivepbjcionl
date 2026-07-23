@@ -43,21 +43,47 @@ def _fold_base(root, fold):
     raise FileNotFoundError(f"Không thấy Fold {fold} dưới {root}")
 
 
+def _pannuke_counts(base, fold):
+    """counts (N,5) per image. Ưu tiên counts.npy; nếu thiếu -> TỰ TÍNH từ masks.npy (cache cwd)."""
+    d = base / "images" / f"fold{fold}"
+    if (d / "counts.npy").exists():
+        return np.load(d / "counts.npy")
+    cache = Path.cwd() / f"pannuke_counts_fold{fold}.npy"
+    if cache.exists():
+        return np.load(cache)
+    mpath = base / "masks" / f"fold{fold}" / "masks.npy"
+    print(f"[pannuke] counts.npy thiếu -> tính từ {mpath} (một lần) ...")
+    masks = np.load(mpath, mmap_mode="r")                 # (N,256,256,6)
+    n = masks.shape[0]; counts = np.zeros((n, 5), np.int32)
+    for i in range(n):
+        m = np.asarray(masks[i, :, :, :5], np.int32)
+        for k in range(5):
+            counts[i, k] = int(np.unique(m[:, :, k]).size - 1)
+        if (i + 1) % 500 == 0:
+            print(f"[pannuke]   {i+1}/{n}")
+    try:
+        np.save(cache, counts); print(f"[pannuke] cache -> {cache}")
+    except Exception:
+        pass
+    return counts
+
+
 def load_pannuke(root, folds, exclude, max_imgs, seed=0):
-    """Load PanNuke trực tiếp từ .npy (img + counts.sum + tissue), KHÔNG cần lib/teacher/mask.
-    counts.npy (N,5) do precompute_pannuke_counts tạo. Loại tissue `exclude` (vd colon: leak teacher)."""
+    """Load PanNuke trực tiếp từ .npy (img + counts.sum + tissue), KHÔNG cần lib/teacher.
+    Loại tissue `exclude` (vd colon: leak teacher). Tự tính counts từ masks nếu counts.npy vắng."""
     root = Path(root); ims, gts, tis = [], [], []
     for fold in folds:
-        d = _fold_base(root, fold) / "images" / f"fold{fold}"
-        imgs = np.load(d / "images.npy")
-        types = np.load(d / "types.npy", allow_pickle=True)
-        counts = np.load(d / "counts.npy")               # (N,5)
-        gt = counts.sum(1).astype(np.float32)
+        base = _fold_base(root, fold)
+        d = base / "images" / f"fold{fold}"
+        imgs = np.load(d / "images.npy", mmap_mode="r")
+        tp = d / "types.npy"
+        types = np.load(tp, allow_pickle=True) if tp.exists() else np.array(["na"] * len(imgs))
+        gt = _pannuke_counts(base, fold).sum(1).astype(np.float32)
         for i in range(len(imgs)):
             t = str(types[i])
             if exclude and exclude.lower() in t.lower():
                 continue
-            ims.append(imgs[i]); gts.append(float(gt[i])); tis.append(t)
+            ims.append(np.asarray(imgs[i])); gts.append(float(gt[i])); tis.append(t)
     ims = np.stack(ims).astype(np.float32)
     if ims.max() > 1.5:
         ims /= 255.
