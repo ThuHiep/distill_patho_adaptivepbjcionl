@@ -162,7 +162,11 @@ Ablation cô lập locality (5 seed, mới có mean — CHỜ 8-seed+Wilcoxon):
 | MAE mô-dày ↓ | 55.5 | 54.2 | **45.7** (−9.72) |
 | Δsat overlay | 55.0 | 55.2 | 54.7 |
 
-**Lần đầu: R²↑ + worst-organ↑ + MAE-mô-dày↓ ĐỒNG THỜI, không tradeoff** (khác Bước 1). **Ablation ĐƠN ĐIỆU baseline<global<local** → locality là mấu chốt. **Δsat không đổi mà dày-MAE thật giảm** → KHÔNG gaming proxy. **⏳ Chưa có significance:** chạy 8-seed + paired-Wilcoxon. Gate: ΔR²>0 (p<0.05) VÀ ΔMAE-dày<0 (p<0.05) → method thật → generality (PanNuke) + semi-sup (ảnh không nhãn). Gate cổng-crowding (`method_crowd_gate.py`) = ablation kiến trúc phụ.
+5-seed: R²↑ + worst-organ↑ + MAE-mô-dày↓ đồng thời + ablation đơn điệu — TRÔNG như win sạch.
+
+**❌ 8-seed + Wilcoxon LẬT NGƯỢC (2026-07-24):** local vs baseline **ΔR² −0.034 (p=0.148, 2/8), ΔMAE-dày +5.61 (p=0.46, 4/8)** — NGHIÊNG ÂM, không sig; ablation hết đơn điệu (baseline 0.907 > local 0.873 > global 0.869). **5-seed win = dương-tính-giả mẫu-nhỏ (lần thứ 3: funnel/pseudo/superpos).** Nguyên nhân chung = **bức tường variance NuInsSeg** (R² ±0.05–0.13, dày-MAE ±13–29) nuốt mọi effect ≤0.05 → NuInsSeg KHÔNG đủ power phân xử method modest.
+
+**⏳ PanNuke ADJUDICATION (đang chạy):** dụng cụ DUY NHẤT đủ power (nhiều ảnh/mô → variance nhỏ). fold_3 no-colon, `--dataset pannuke`. p<0.05 dương → method thật; null/âm → **đóng dứt hướng method**, cam kết không chase thêm. Gate cổng-crowding = ablation phụ (chưa chạy).
 
 ---
 
