@@ -43,8 +43,7 @@ def _gt_density(mask5):
     d = np.zeros((IMG, IMG), np.float32)
     for k in range(5):
         lab = mask5[:, :, k]
-        ids = np.unique(lab)
-        for iid in ids:
+        for iid in np.unique(lab):
             if iid == 0:
                 continue
             m = lab == iid
@@ -54,6 +53,10 @@ def _gt_density(mask5):
     return d
 
 
+def _fast_count(mask5):
+    return int(sum(np.unique(mask5[:, :, k]).size - 1 for k in range(5)))
+
+
 def load_fold(root, fold, exclude, want_shape, max_imgs=0, seed=0):
     """Trả (imgs uint8 (M,256,256,3), gts (M,), shapes (M,256,256) f16 sum=1 hoặc None)."""
     base = _fold_base(root, fold)
@@ -61,9 +64,10 @@ def load_fold(root, fold, exclude, want_shape, max_imgs=0, seed=0):
     imgs = np.load(d / "images.npy", mmap_mode="r")
     tp = d / "types.npy"
     types = np.load(tp, allow_pickle=True) if tp.exists() else np.array(["na"] * len(imgs))
-    masks = None
-    if want_shape:
-        masks = np.load(base / "masks" / f"fold{fold}" / "masks.npy", mmap_mode="r")   # (N,256,256,6)
+    cp = d / "counts.npy"
+    counts = np.load(cp) if cp.exists() else None
+    need_mask = want_shape or counts is None
+    masks = np.load(base / "masks" / f"fold{fold}" / "masks.npy", mmap_mode="r") if need_mask else None
     keep = [i for i in range(len(imgs)) if not (exclude and exclude.lower() in str(types[i]).lower())]
     if max_imgs and len(keep) > max_imgs:
         keep = list(np.random.default_rng(seed).choice(keep, max_imgs, replace=False))
@@ -75,17 +79,14 @@ def load_fold(root, fold, exclude, want_shape, max_imgs=0, seed=0):
         oi.append(im.astype(np.uint8))
         if want_shape:
             dens = _gt_density(np.asarray(masks[i, :, :, :5], np.int32))
-            og.append(float(dens.sum()))                                   # GT count = tổng density
-            s = dens.sum()
+            og.append(float(dens.sum())); s = dens.sum()
             osh.append((dens / s if s > 0 else dens).astype(np.float16))
+        elif counts is not None:
+            og.append(float(counts[i].sum()))
+        else:
+            og.append(float(_fast_count(np.asarray(masks[i, :, :, :5], np.int32))))
         if (j + 1) % 500 == 0:
             print(f"  [fold{fold}] {j+1}/{len(keep)}")
-    if not want_shape:
-        # GT count từ counts.npy (nhanh, khỏi mask)
-        cp = d / "counts.npy"
-        counts = np.load(cp) if cp.exists() else None
-        og = [float(counts[i].sum()) for i in keep] if counts is not None else \
-             [float(_gt_density(np.asarray(masks[i, :, :, :5], np.int32)).sum()) for i in keep]
     imgs_a = np.stack(oi)
     shapes = np.stack(osh) if want_shape else None
     return imgs_a, np.array(og, np.float32), shapes
