@@ -13,6 +13,7 @@ Chạy Kaggle (GPU, Internet ON cho pretrained; ĐỪNG pip install):
   !python method_frontier.py --root /kaggle/input/datasets/ipateam/nuinsseg
 """
 import argparse
+from pathlib import Path
 import numpy as np
 from PIL import Image
 import torch
@@ -24,6 +25,62 @@ from r2_losses import count_from_density
 def gt_from_mask(path):
     m = _load_mask(path)
     return int(len(np.unique(m)) - (1 if (m == 0).any() else 0))
+
+
+def _fold_base(root, fold):
+    f = f"fold{fold}"
+    for c in (root / f / f"Fold {fold}", root / f"Fold {fold}"):
+        if (c / "images" / f / "images.npy").exists():
+            return c
+    raise FileNotFoundError(f"Không thấy Fold {fold} dưới {root}")
+
+
+def _pannuke_counts(base, fold):
+    d = base / "images" / f"fold{fold}"
+    if (d / "counts.npy").exists():
+        return np.load(d / "counts.npy")
+    cache = Path.cwd() / f"pannuke_counts_fold{fold}.npy"
+    if cache.exists():
+        return np.load(cache)
+    mpath = base / "masks" / f"fold{fold}" / "masks.npy"
+    print(f"[pannuke] tính counts từ {mpath} (một lần) ...")
+    masks = np.load(mpath, mmap_mode="r"); n = masks.shape[0]
+    counts = np.zeros((n, 5), np.int32)
+    for i in range(n):
+        m = np.asarray(masks[i, :, :, :5], np.int32)
+        for k in range(5):
+            counts[i, k] = int(np.unique(m[:, :, k]).size - 1)
+    try:
+        np.save(cache, counts)
+    except Exception:
+        pass
+    return counts
+
+
+def load_pannuke_data(root, folds, exclude, max_imgs, seed=0):
+    """Trả list dict {img uint8 256, density zeros, gt, organ} — đúng format train()/eval."""
+    root = Path(root); out = []
+    for fold in folds:
+        base = _fold_base(root, fold)
+        d = base / "images" / f"fold{fold}"
+        imgs = np.load(d / "images.npy", mmap_mode="r")
+        tp = d / "types.npy"
+        types = np.load(tp, allow_pickle=True) if tp.exists() else np.array(["na"] * len(imgs))
+        gt = _pannuke_counts(base, fold).sum(1).astype(np.float32)
+        for i in range(len(imgs)):
+            t = str(types[i])
+            if exclude and exclude.lower() in t.lower():
+                continue
+            im = np.asarray(imgs[i])
+            if im.max() <= 1.5:
+                im = (im * 255)
+            out.append({"img": im.astype(np.uint8),
+                        "density": np.zeros((IMG_SIZE, IMG_SIZE), np.float32),
+                        "gt": float(gt[i]), "organ": t})
+    if max_imgs and len(out) > max_imgs:
+        r = np.random.default_rng(seed).choice(len(out), max_imgs, replace=False)
+        out = [out[i] for i in r]
+    return out
 
 
 def n_params(backbone):
@@ -45,24 +102,39 @@ def eval_r2_mae(model, data, idx, dev):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=None)
-    ap.add_argument("--epochs", type=int, default=60)
+    ap.add_argument("--root", default=None, help="NuInsSeg root")
+    ap.add_argument("--dataset", default="pannuke", choices=["pannuke", "nuinsseg"])
+    ap.add_argument("--pannuke_root", default=None)
+    ap.add_argument("--train_folds", default="1,2")
+    ap.add_argument("--test_fold", default="3")
+    ap.add_argument("--exclude_tissue", default="colon")
+    ap.add_argument("--max_imgs", type=int, default=0, help="cap ảnh TRAIN (0=hết) để giảm runtime")
+    ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--backbones",
                     default="tinyunet,mobilenetv3_small_100,efficientnet_lite0,efficientnet_b1,resnet18,resnet34")
     ap.add_argument("--seeds", default="42,43,44")
     args = ap.parse_args()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"[device] {dev}")
+    print(f"[device] {dev} | dataset {args.dataset}")
 
-    samples = build_index(args.root or find_root())
-    data = []
-    for s in samples:
-        im = np.asarray(Image.open(s["image"]).convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
-        data.append({"img": im.astype(np.uint8),
-                     "density": np.zeros((IMG_SIZE, IMG_SIZE), np.float32),
-                     "gt": float(gt_from_mask(s["mask"])), "organ": s["organ"]})
+    if args.dataset == "pannuke":
+        tr_folds = [int(x) for x in args.train_folds.split(",")]
+        data = load_pannuke_data(args.pannuke_root, tr_folds, args.exclude_tissue, args.max_imgs)
+        n_tr = len(data)
+        data += load_pannuke_data(args.pannuke_root, [int(args.test_fold)], args.exclude_tissue, 0)
+        tr_fixed = list(range(n_tr)); te_fixed = list(range(n_tr, len(data)))
+        print(f"[data] PanNuke train fold{tr_folds}={n_tr} / test fold{args.test_fold}={len(te_fixed)} (no-{args.exclude_tissue})")
+    else:
+        samples = build_index(args.root or find_root())
+        data = []
+        for s in samples:
+            im = np.asarray(Image.open(s["image"]).convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR))
+            data.append({"img": im.astype(np.uint8),
+                         "density": np.zeros((IMG_SIZE, IMG_SIZE), np.float32),
+                         "gt": float(gt_from_mask(s["mask"])), "organ": s["organ"]})
+        tr_fixed = te_fixed = None
+        print(f"[data] NuInsSeg {len(data)} ảnh (random split)")
     n = len(data)
-    print(f"[data] {n} ảnh")
 
     seeds = [int(s) for s in args.seeds.split(",")]
     backbones = args.backbones.split(",")
@@ -74,9 +146,11 @@ def main():
             print(f"[skip] {bb}: build lỗi ({e})"); continue
         r2s, maes = [], []
         for seed in seeds:
-            rng = np.random.default_rng(seed)
-            idx = rng.permutation(n); n_te = n // 5
-            te, tr = idx[:n_te], idx[n_te:]
+            if tr_fixed is not None:
+                tr, te = tr_fixed, te_fixed                       # PanNuke: fold split cố định
+            else:
+                rng = np.random.default_rng(seed); idx = rng.permutation(n); n_te = n // 5
+                te, tr = idx[:n_te], idx[n_te:]
             try:
                 model = train(data, dev, args.epochs, 32, 1e-3, list(tr),
                               0.0, 1.0, 0.01, 0.5, 16, True, "poisson", bb)   # count-only (w_density=0)
